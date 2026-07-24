@@ -1,0 +1,18 @@
+# AI IDE folders
+.windsurf/
+.claude/
+.agents/
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
