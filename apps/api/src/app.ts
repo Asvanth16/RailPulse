@@ -18,12 +18,12 @@ app.use(morgan("dev"));
 
 app.use(express.json());
 
+app.use(requestLogger);
+
 app.use("/api", routes);
 
 app.use(notFoundMiddleware);
 
 app.use(errorMiddleware);
-
-app.use(requestLogger);
 
 export default app;
