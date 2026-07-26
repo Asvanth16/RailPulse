@@ -23,4 +23,9 @@ export const userRepository = {
       where: { id },
     });
   },
+  async findById(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+    });
+  },
 };
