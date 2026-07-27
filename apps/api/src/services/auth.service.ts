@@ -1,8 +1,7 @@
 import bcrypt from "bcrypt";
 import { userRepository } from "../repositories/user.repository";
 import { generateAccessToken } from "../utils/jwt";
-import type { RegisterInput } from "../validators/auth.validator";
-import type { LoginInput } from "../validators/auth.validator";
+import type { RegisterInput, LoginInput } from "../validators/auth.validator";
 import { UnauthorizedError } from "../errors/UnauthorizedError";
 import { ConflictError } from "../errors/ConflictError";
 import { toUserResponse } from "../utils/user.mapper";

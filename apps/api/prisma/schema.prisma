@@ -35,3 +35,27 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 }
+
+enum TrainType {
+  ICE
+  IC
+  EC
+  RE
+  RB
+}
+
+model Train {
+  id          String   @id @default(cuid())
+
+  trainNumber String   @unique
+  trainName   String
+  trainType   TrainType
+
+  operator    String
+
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
