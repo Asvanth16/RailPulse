@@ -59,3 +59,21 @@ model Train {
   updatedAt   DateTime @updatedAt
 }
 
+model Station {
+  id          String   @id @default(cuid())
+
+  code        String   @unique
+  name        String
+
+  city        String
+  state       String
+  country     String
+
+  latitude    Float
+  longitude   Float
+
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
