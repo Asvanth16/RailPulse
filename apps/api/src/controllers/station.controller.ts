@@ -46,7 +46,7 @@ export const stationController = {
     try {
       const station = await stationService.updateStation(
         req.params.id,
-        req.body
+        req.body,
       );
 
       res.status(200).json({
