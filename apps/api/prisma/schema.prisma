@@ -107,6 +107,8 @@ model Journey {
 
   stops JourneyStop[]
 
+  schedules Schedule[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -135,4 +137,38 @@ model JourneyStop {
   @@unique([journeyId, sequence])
   @@index([journeyId])
   @@index([stationId])
+}
+
+enum ScheduleType {
+  DAILY
+  WEEKDAYS
+  WEEKENDS
+  CUSTOM
+}
+
+model Schedule {
+  id String @id @default(cuid())
+
+  journeyId String
+  journey   Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  scheduleType ScheduleType
+
+  monday    Boolean @default(false)
+  tuesday   Boolean @default(false)
+  wednesday Boolean @default(false)
+  thursday  Boolean @default(false)
+  friday    Boolean @default(false)
+  saturday  Boolean @default(false)
+  sunday    Boolean @default(false)
+
+  effectiveFrom  DateTime
+  effectiveUntil DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([journeyId])
 }

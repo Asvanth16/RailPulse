@@ -5,6 +5,7 @@ import authRoutes from "./auth.routes";
 import trainRoutes from "./train.routes";
 import stationRoutes from "./station.routes";
 import journeyRoutes from "./journey.routes";
+import scheduleRoutes from "./schedule.routes";
 
 const router = Router();
 
@@ -17,5 +18,7 @@ router.use("/trains", trainRoutes);
 router.use("/stations", stationRoutes);
 
 router.use("/journeys", journeyRoutes);
+
+router.use("/schedules", scheduleRoutes);
 
 export default router;
