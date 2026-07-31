@@ -5,5 +5,4 @@ export interface LiveStationDto {
 
   name: string;
 
-  platforms: string[];
 }

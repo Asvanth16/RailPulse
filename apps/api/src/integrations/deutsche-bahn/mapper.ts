@@ -36,9 +36,7 @@ export class DeutscheBahnMapper {
     const minute = Number(value.slice(8, 10));
 
     // Use UTC to avoid timezone issues
-    return new Date(
-      Date.UTC(year, month, day, hour, minute),
-    ).toISOString();
+    return new Date(Date.UTC(year, month, day, hour, minute)).toISOString();
   }
 
   private calculateDelay(
@@ -51,10 +49,7 @@ export class DeutscheBahnMapper {
     const actualTime = new Date(actual).getTime();
 
     // Never return negative delays
-    return Math.max(
-      0,
-      Math.round((actualTime - plannedTime) / 60000),
-    );
+    return Math.max(0, Math.round((actualTime - plannedTime) / 60000));
   }
 
   private isCancelled(event?: Event): boolean {
@@ -85,12 +80,11 @@ export class DeutscheBahnMapper {
       eva: station.eva,
       ds100: station.ds100,
       name: station.name,
-      platforms: station.p ? station.p.split("|") : [],
     };
   }
 
   mapStations(data: MultipleStationData): LiveStationDto[] {
-    return this.safeArray(data.station).map((station) =>
+    return this.safeArray(data.stations.station).map((station) =>
       this.mapStation(station),
     );
   }
@@ -102,10 +96,7 @@ export class DeutscheBahnMapper {
     const departurePlanned = this.parseTimestamp(stop.dp?.pt);
     const departureActual = this.parseTimestamp(stop.dp?.ct);
 
-    const trainLabel =
-      stop.tl ??
-      stop.ref?.tl ??
-      stop.ref?.rt?.[0];
+    const trainLabel = stop.tl ?? stop.ref?.tl ?? stop.ref?.rt?.[0];
 
     // Remove duplicate messages
     const uniqueMessages = new Map<string, Message>();
@@ -130,19 +121,14 @@ export class DeutscheBahnMapper {
       plannedPlatform: stop.ar?.pp ?? stop.dp?.pp,
       actualPlatform: stop.ar?.cp ?? stop.dp?.cp,
 
-      arrivalDelayMinutes: this.calculateDelay(
-        arrivalPlanned,
-        arrivalActual,
-      ),
+      arrivalDelayMinutes: this.calculateDelay(arrivalPlanned, arrivalActual),
 
       departureDelayMinutes: this.calculateDelay(
         departurePlanned,
         departureActual,
       ),
 
-      cancelled:
-        this.isCancelled(stop.ar) ||
-        this.isCancelled(stop.dp),
+      cancelled: this.isCancelled(stop.ar) || this.isCancelled(stop.dp),
 
       train: trainLabel
         ? this.mapTrain(trainLabel)
@@ -164,12 +150,9 @@ export class DeutscheBahnMapper {
     return {
       stationEva: timetable.eva ?? 0,
 
-      // Timestamp when RailPulse generated this response
       generatedAt: new Date().toISOString(),
 
-      stops: this.safeArray(timetable.s).map((stop) =>
-        this.mapStop(stop),
-      ),
+      stops: this.safeArray(timetable.s).map((stop) => this.mapStop(stop)),
     };
   }
 }

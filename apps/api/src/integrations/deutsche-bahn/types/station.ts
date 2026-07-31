@@ -23,13 +23,10 @@ export interface StationData {
    */
   meta?: string;
 
-  /**
-   * Platforms separated by "|"
-   * Example: "1|2|3|4"
-   */
-  p?: string;
 }
 
 export interface MultipleStationData {
-  station: StationData[];
+  stations: {
+    station: StationData | StationData[];
+  };
 }

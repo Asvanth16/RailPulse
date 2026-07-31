@@ -2,10 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import { XMLParser } from "fast-xml-parser";
 
 import { env } from "../../config/env";
-import {
-  MultipleStationData,
-  Timetable,
-} from "./types";
+import { MultipleStationData, Timetable } from "./types";
 
 export class DeutscheBahnClient {
   private readonly client: AxiosInstance;
@@ -13,11 +10,11 @@ export class DeutscheBahnClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: env.dbApiBaseUrl,
+      baseURL: env.DB_API_BASE_URL,
       timeout: 10000,
       headers: {
-        "DB-Client-Id": env.dbClientId,
-        "DB-Api-Key": env.dbApiKey,
+        "DB-Client-Id": env.DB_CLIENT_ID,
+        "DB-Api-Key": env.DB_API_KEY,
         Accept: "application/xml",
       },
     });
@@ -38,23 +35,19 @@ export class DeutscheBahnClient {
     const response = await this.client.get(`/station/${pattern}`, {
       responseType: "text",
     });
+    const parsed = this.parseXml<MultipleStationData>(response.data);
 
-    return this.parseXml<MultipleStationData>(response.data);
+    return parsed;
   }
 
-  async getPlan(
-    evaNo: string,
-    date: string,
-    hour: string
-  ): Promise<Timetable> {
-    const response = await this.client.get(
-      `/plan/${evaNo}/${date}/${hour}`,
-      {
-        responseType: "text",
-      }
-    );
+  async getPlan(evaNo: string, date: string, hour: string): Promise<Timetable> {
+    const response = await this.client.get(`/plan/${evaNo}/${date}/${hour}`, {
+      responseType: "text",
+    });
 
-    return this.parseXml<Timetable>(response.data);
+    const parsed = this.parseXml<{ timetable: Timetable }>(response.data);
+
+    return parsed.timetable;
   }
 
   async getFullChanges(evaNo: string): Promise<Timetable> {
@@ -62,7 +55,9 @@ export class DeutscheBahnClient {
       responseType: "text",
     });
 
-    return this.parseXml<Timetable>(response.data);
+    const parsed = this.parseXml<{ timetable: Timetable }>(response.data);
+
+    return parsed.timetable;
   }
 
   async getRecentChanges(evaNo: string): Promise<Timetable> {
@@ -70,7 +65,9 @@ export class DeutscheBahnClient {
       responseType: "text",
     });
 
-    return this.parseXml<Timetable>(response.data);
+    const parsed = this.parseXml<{ timetable: Timetable }>(response.data);
+
+    return parsed.timetable;
   }
 }
 

@@ -28,3 +28,10 @@ export class RailwayTimeoutError extends RailwayApiError {
     this.name = "RailwayTimeoutError";
   }
 }
+
+export class RailwayNotFoundError extends RailwayApiError {
+  constructor(message = "Requested railway resource not found.") {
+    super(message, 404);
+    this.name = "RailwayNotFoundError";
+  }
+}
