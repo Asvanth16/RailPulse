@@ -8,6 +8,7 @@ import journeyRoutes from "./journey.routes";
 import scheduleRoutes from "./schedule.routes";
 import trainRunRoutes from "./train-run.routes";
 import { liveRoutes } from "../live";
+import favoriteStationRoutes from "./favorite-station.routes";
 
 const router = Router();
 
@@ -26,5 +27,7 @@ router.use("/schedules", scheduleRoutes);
 router.use("/train-runs", trainRunRoutes);
 
 router.use("/live", liveRoutes);
+
+router.use("/favorite-stations", favoriteStationRoutes);
 
 export default router;
