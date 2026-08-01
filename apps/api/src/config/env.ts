@@ -23,4 +23,7 @@ export const env = {
   DB_CLIENT_ID: requireEnv("DB_CLIENT_ID"),
   DB_API_KEY: requireEnv("DB_API_KEY"),
 
+  REDIS_HOST: requireEnv("REDIS_HOST"),
+  REDIS_PORT: Number(requireEnv("REDIS_PORT")),
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD,
 };
