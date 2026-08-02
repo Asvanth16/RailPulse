@@ -11,6 +11,7 @@ import { liveRoutes } from "../live";
 import favoriteStationRoutes from "./favorite-station.routes";
 import savedJourneyRoutes from "./saved-journey.routes";
 import recentSearchRoutes from "./recent-search.routes";
+import notificationPreferenceRoutes from "./notification-preference.routes";
 
 const router = Router();
 
@@ -35,5 +36,7 @@ router.use("/favorite-stations", favoriteStationRoutes);
 router.use("/saved-journeys", savedJourneyRoutes);
 
 router.use("/recent-searches", recentSearchRoutes);
+
+router.use("/notification-preferences", notificationPreferenceRoutes);
 
 export default router;

@@ -33,11 +33,13 @@ model User {
   isActive   Boolean @default(true)
 
   favoriteStations FavoriteStation[]
+  savedJourneys SavedJourney[]
+  recentSearches RecentSearch[]
+  notificationPreference NotificationPreference?
 
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  savedJourneys SavedJourney[]
-  recentSearches RecentSearch[]
+  
 }
 
 enum TrainType {
@@ -276,4 +278,24 @@ model RecentSearch {
   @@unique([userId, searchType, query])
 
   @@unique([userId, searchType, fromStationEva, toStationEva])
+}
+
+model NotificationPreference {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  pushNotifications Boolean @default(true)
+  emailNotifications Boolean @default(true)
+
+  delayAlerts Boolean @default(true)
+  platformChangeAlerts Boolean @default(true)
+
+  departureReminders Boolean @default(true)
+
+  reminderMinutes Int @default(15)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
