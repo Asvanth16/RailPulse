@@ -37,6 +37,7 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   savedJourneys SavedJourney[]
+  recentSearches RecentSearch[]
 }
 
 enum TrainType {
@@ -245,4 +246,34 @@ model SavedJourney {
   @@index([userId])
 
   @@unique([userId, fromStationEva, toStationEva])
+}
+
+enum SearchType {
+  STATION
+  JOURNEY
+}
+
+model RecentSearch {
+  id String @id @default(cuid())
+
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  searchType SearchType
+
+  query String?
+
+  fromStationEva Int?
+  fromStationName String?
+
+  toStationEva Int?
+  toStationName String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+
+  @@unique([userId, searchType, query])
+
+  @@unique([userId, searchType, fromStationEva, toStationEva])
 }
