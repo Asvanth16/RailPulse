@@ -3,6 +3,7 @@ import { favoriteStationRepository } from "../repositories/favorite-station.repo
 import { CreateFavoriteStationInput } from "../validators/favorite-station.validator";
 import { ConflictError } from "../errors/ConflictError";
 import { NotFoundError } from "../errors/NotFoundError";
+import { favoriteStationMapper } from "../mapper/favorite-station.mapper.js";
 
 export const favoriteStationService = {
   async addFavorite(
@@ -24,21 +25,13 @@ export const favoriteStationService = {
       data.stationName,
     );
 
-    return {
-      stationEva: favorite.stationEva,
-      stationName: favorite.stationName,
-      createdAt: favorite.createdAt.toISOString(),
-    };
+    return favoriteStationMapper.toDto(favorite);
   },
 
   async getFavorites(userId: string): Promise<FavoriteStationDto[]> {
     const favorites = await favoriteStationRepository.findByUserId(userId);
 
-    return favorites.map((favorite) => ({
-      stationEva: favorite.stationEva,
-      stationName: favorite.stationName,
-      createdAt: favorite.createdAt.toISOString(),
-    }));
+    return favoriteStationMapper.toDtoList(favorites);
   },
 
   async removeFavorite(userId: string, stationEva: number): Promise<void> {

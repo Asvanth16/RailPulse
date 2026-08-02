@@ -9,6 +9,7 @@ import scheduleRoutes from "./schedule.routes";
 import trainRunRoutes from "./train-run.routes";
 import { liveRoutes } from "../live";
 import favoriteStationRoutes from "./favorite-station.routes";
+import savedJourneyRoutes from "./saved-journey.routes";
 
 const router = Router();
 
@@ -29,5 +30,7 @@ router.use("/train-runs", trainRunRoutes);
 router.use("/live", liveRoutes);
 
 router.use("/favorite-stations", favoriteStationRoutes);
+
+router.use("/saved-journeys", savedJourneyRoutes);
 
 export default router;
