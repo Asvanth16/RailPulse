@@ -11,17 +11,17 @@ export const alertMapper = {
 
       journeyId: alert.journeyId ?? undefined,
 
-      fromStationEva:
-        alert.fromStationEva ?? undefined,
+      fromStationEva: alert.fromStationEva ?? undefined,
 
-      fromStationName:
-        alert.fromStationName ?? undefined,
+      fromStationName: alert.fromStationName ?? undefined,
 
-      toStationEva:
-        alert.toStationEva ?? undefined,
+      toStationEva: alert.toStationEva ?? undefined,
 
-      toStationName:
-        alert.toStationName ?? undefined,
+      toStationName: alert.toStationName ?? undefined,
+
+      monitorStationEva: alert.monitorStationEva ?? undefined,
+      
+      monitorStationName: alert.monitorStationName ?? undefined,
 
       alertType: alert.alertType,
 
@@ -29,8 +29,7 @@ export const alertMapper = {
 
       isTriggered: alert.isTriggered,
 
-      lastCheckedAt:
-        alert.lastCheckedAt?.toISOString(),
+      lastCheckedAt: alert.lastCheckedAt?.toISOString(),
 
       createdAt: alert.createdAt.toISOString(),
 
@@ -39,8 +38,6 @@ export const alertMapper = {
   },
 
   toDtoList(alerts: Alert[]): AlertDto[] {
-    return alerts.map((alert) =>
-      this.toDto(alert),
-    );
+    return alerts.map((alert) => this.toDto(alert));
   },
 };

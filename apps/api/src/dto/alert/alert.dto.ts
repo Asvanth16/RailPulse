@@ -11,6 +11,9 @@ export interface AlertDto {
   toStationEva?: number;
   toStationName?: string;
 
+  monitorStationEva?: number;
+  monitorStationName?: string;
+
   alertType:
     | "DELAY"
     | "PLATFORM_CHANGE"

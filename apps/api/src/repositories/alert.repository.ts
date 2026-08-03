@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { Alert } from "../generated/prisma/models";
+import { AlertType } from "../generated/prisma/enums";
 
 import {
   CreateAlertInput,
@@ -7,10 +8,7 @@ import {
 } from "../validators/alert.validator";
 
 export const alertRepository = {
-  async create(
-    userId: string,
-    data: CreateAlertInput,
-  ): Promise<Alert> {
+  async create(userId: string, data: CreateAlertInput): Promise<Alert> {
     return prisma.alert.create({
       data: {
         userId,
@@ -19,9 +17,7 @@ export const alertRepository = {
     });
   },
 
-  async findById(
-    id: string,
-  ): Promise<Alert | null> {
+  async findById(id: string): Promise<Alert | null> {
     return prisma.alert.findUnique({
       where: {
         id,
@@ -29,9 +25,7 @@ export const alertRepository = {
     });
   },
 
-  async findByUserId(
-    userId: string,
-  ): Promise<Alert[]> {
+  async findByUserId(userId: string): Promise<Alert[]> {
     return prisma.alert.findMany({
       where: {
         userId,
@@ -42,10 +36,19 @@ export const alertRepository = {
     });
   },
 
-  async update(
-    id: string,
-    data: UpdateAlertInput,
-  ): Promise<Alert> {
+  async findEnabledByType(alertType: AlertType) {
+    return prisma.alert.findMany({
+      where: {
+        alertType,
+        isEnabled: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+  },
+
+  async update(id: string, data: UpdateAlertInput): Promise<Alert> {
     return prisma.alert.update({
       where: {
         id,
@@ -54,9 +57,7 @@ export const alertRepository = {
     });
   },
 
-  async delete(
-    id: string,
-  ): Promise<Alert> {
+  async delete(id: string): Promise<Alert> {
     return prisma.alert.delete({
       where: {
         id,
@@ -76,11 +77,9 @@ export const alertRepository = {
 
         journeyId: data.journeyId ?? null,
 
-        fromStationEva:
-          data.fromStationEva ?? null,
+        fromStationEva: data.fromStationEva ?? null,
 
-        toStationEva:
-          data.toStationEva ?? null,
+        toStationEva: data.toStationEva ?? null,
 
         alertType: data.alertType,
       },

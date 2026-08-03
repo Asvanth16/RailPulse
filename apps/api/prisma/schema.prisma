@@ -327,6 +327,9 @@ model Alert {
   toStationEva Int?
   toStationName String?
 
+  monitorStationEva Int?
+  monitorStationName String?
+
   alertType AlertType
 
   isEnabled Boolean @default(true)
@@ -339,4 +342,5 @@ model Alert {
 
   @@index([userId])
   @@index([journeyId])
+  @@index([monitorStationEva])
 }

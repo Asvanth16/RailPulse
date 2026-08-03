@@ -11,6 +11,9 @@ export const createAlertSchema = z.object({
   toStationEva: z.number().int().optional(),
   toStationName: z.string().trim().optional(),
 
+  monitorStationEva: z.number().int().optional(),
+  monitorStationName: z.string().trim().optional(),
+
   alertType: z.enum([
     "DELAY",
     "PLATFORM_CHANGE",
@@ -24,8 +27,6 @@ export const updateAlertSchema = z.object({
   isEnabled: z.boolean().optional(),
 });
 
-export type CreateAlertInput =
-  z.infer<typeof createAlertSchema>;
+export type CreateAlertInput = z.infer<typeof createAlertSchema>;
 
-export type UpdateAlertInput =
-  z.infer<typeof updateAlertSchema>;
+export type UpdateAlertInput = z.infer<typeof updateAlertSchema>;
