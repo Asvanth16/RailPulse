@@ -12,6 +12,7 @@ import favoriteStationRoutes from "./favorite-station.routes";
 import savedJourneyRoutes from "./saved-journey.routes";
 import recentSearchRoutes from "./recent-search.routes";
 import notificationPreferenceRoutes from "./notification-preference.routes";
+import alertRoutes from "./alert.routes";
 
 const router = Router();
 
@@ -38,5 +39,7 @@ router.use("/saved-journeys", savedJourneyRoutes);
 router.use("/recent-searches", recentSearchRoutes);
 
 router.use("/notification-preferences", notificationPreferenceRoutes);
+
+router.use("/alerts", alertRoutes);
 
 export default router;
