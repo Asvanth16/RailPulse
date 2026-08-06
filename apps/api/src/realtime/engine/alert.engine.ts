@@ -22,6 +22,18 @@ export class AlertEngine {
     return this.isDelayed(train) && !alert.isTriggered;
   }
 
+  isPlatformChanged(train: LiveStopDto): boolean {
+    if (!train.plannedPlatform || !train.actualPlatform) {
+      return false;
+    }
+
+    return train.plannedPlatform !== train.actualPlatform;
+  }
+
+  shouldTriggerPlatform(alert: Alert, train: LiveStopDto): boolean {
+    return this.isPlatformChanged(train) && !alert.isTriggered;
+  }
+
   hasPassedStation(train: LiveStopDto): boolean {
     const departureTime = train.actualDeparture ?? train.plannedDeparture;
 
@@ -36,6 +48,14 @@ export class AlertEngine {
       ALERT_COMPLETION_GRACE_PERIOD_MINUTES * MILLISECONDS_PER_MINUTE;
 
     return now >= departedAt + gracePeriod;
+  }
+
+  isCancelled(train: LiveStopDto): boolean {
+    return train.cancelled;
+  }
+
+  shouldTriggerCancellation(alert: Alert, train: LiveStopDto): boolean {
+    return this.isCancelled(train) && !alert.isTriggered;
   }
 }
 

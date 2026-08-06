@@ -13,13 +13,19 @@ export interface NotificationPayload {
 
   stationName: string;
 
-  delayMinutes: number;
+  delayMinutes?: number;
+
+  plannedPlatform?: string | number;
+
+  actualPlatform?: string | number;
+
+  cancelled?: boolean;
 }
 
 export class NotificationService {
-  async send(payload: NotificationPayload): Promise<void> {
+  async sendDelay(payload: NotificationPayload): Promise<void> {
     console.log("=================================");
-    console.log("🔔 Notification");
+    console.log("🔔 Delay Notification");
     console.log(`User    : ${payload.userId}`);
     console.log(`Email   : ${payload.email}`);
     console.log(`Title   : ${payload.title}`);
@@ -91,6 +97,166 @@ export class NotificationService {
   </body>
 </html>
       `,
+    });
+  }
+
+  async sendPlatform(payload: NotificationPayload): Promise<void> {
+    console.log("=================================");
+    console.log("🚉 Platform Notification");
+    console.log(`User     : ${payload.userId}`);
+    console.log(`Email    : ${payload.email}`);
+    console.log(`Title    : ${payload.title}`);
+    console.log(`Train    : ${payload.trainNumber}`);
+    console.log(`Station  : ${payload.stationName}`);
+    console.log(
+      `Platform : ${payload.plannedPlatform} → ${payload.actualPlatform}`,
+    );
+    console.log("=================================");
+
+    await emailService.send({
+      to: payload.email,
+      subject: payload.title,
+      html: `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: Arial, Helvetica, sans-serif; background:#f4f4f4; padding:30px;">
+    <div style="max-width:600px; margin:auto; background:white; border-radius:10px; padding:30px;">
+
+      <h1 style="color:#0f62fe; margin-bottom:0;">
+        🚆 RailPulse
+      </h1>
+
+      <p style="color:#666;">
+        Real-Time Platform Notification
+      </p>
+
+      <hr />
+
+      <h2>${payload.title}</h2>
+
+      <p>
+        Hello <strong>${payload.firstName}</strong>,
+      </p>
+
+      <p>
+        Your train platform has changed.
+      </p>
+
+      <table style="width:100%; border-collapse:collapse;">
+        <tr>
+          <td><strong>Train</strong></td>
+          <td>${payload.trainNumber}</td>
+        </tr>
+
+        <tr>
+          <td><strong>Station</strong></td>
+          <td>${payload.stationName}</td>
+        </tr>
+
+        <tr>
+          <td><strong>Old Platform</strong></td>
+          <td>${payload.plannedPlatform}</td>
+        </tr>
+
+        <tr>
+          <td><strong>New Platform</strong></td>
+          <td>${payload.actualPlatform}</td>
+        </tr>
+      </table>
+
+      <br />
+
+      <p>
+        Please check the station display boards before boarding your train.
+      </p>
+
+      <hr />
+
+      <p style="color:#777;">
+        Thank you,<br />
+        <strong>RailPulse Team</strong>
+      </p>
+
+    </div>
+  </body>
+</html>
+      `,
+    });
+  }
+
+  async sendCancellation(payload: NotificationPayload): Promise<void> {
+    console.log("=================================");
+    console.log("❌ Cancellation Notification");
+    console.log(`User     : ${payload.userId}`);
+    console.log(`Email    : ${payload.email}`);
+    console.log(`Title    : ${payload.title}`);
+    console.log(`Train    : ${payload.trainNumber}`);
+    console.log(`Station  : ${payload.stationName}`);
+    console.log("=================================");
+
+    await emailService.send({
+      to: payload.email,
+      subject: payload.title,
+      html: `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: Arial, Helvetica, sans-serif; background:#f4f4f4; padding:30px;">
+    <div style="max-width:600px; margin:auto; background:white; border-radius:10px; padding:30px;">
+
+      <h1 style="color:#0f62fe; margin-bottom:0;">
+        🚆 RailPulse
+      </h1>
+
+      <p style="color:#666;">
+        Real-Time Cancellation Notification
+      </p>
+
+      <hr />
+
+      <h2>${payload.title}</h2>
+
+      <p>
+        Hello <strong>${payload.firstName}</strong>,
+      </p>
+
+      <p>
+        Unfortunately, your monitored train has been cancelled.
+      </p>
+
+      <table style="width:100%; border-collapse:collapse;">
+        <tr>
+          <td><strong>Train</strong></td>
+          <td>${payload.trainNumber}</td>
+        </tr>
+
+        <tr>
+          <td><strong>Station</strong></td>
+          <td>${payload.stationName}</td>
+        </tr>
+
+        <tr>
+          <td><strong>Status</strong></td>
+          <td style="color:red;"><strong>Cancelled</strong></td>
+        </tr>
+      </table>
+
+      <br />
+
+      <p>
+        Please check Deutsche Bahn for alternative services or updated travel information.
+      </p>
+
+      <hr />
+
+      <p style="color:#777;">
+        Thank you,<br />
+        <strong>RailPulse Team</strong>
+      </p>
+
+    </div>
+  </body>
+</html>
+    `,
     });
   }
 }
