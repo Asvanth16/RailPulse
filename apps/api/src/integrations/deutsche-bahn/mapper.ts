@@ -26,16 +26,23 @@ export class DeutscheBahnMapper {
     return Array.isArray(value) ? value : [value];
   }
 
-  private parseTimestamp(value?: string): string | undefined {
-    if (!value || value.length !== 10) return undefined;
+  private parseTimestamp(value?: string | number): string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
 
-    const year = Number(value.slice(0, 2)) + 2000;
-    const month = Number(value.slice(2, 4)) - 1;
-    const day = Number(value.slice(4, 6));
-    const hour = Number(value.slice(6, 8));
-    const minute = Number(value.slice(8, 10));
+    const timestamp = String(value);
 
-    // Use UTC to avoid timezone issues
+    if (timestamp.length !== 10) {
+      return undefined;
+    }
+
+    const year = Number(timestamp.slice(0, 2)) + 2000;
+    const month = Number(timestamp.slice(2, 4)) - 1;
+    const day = Number(timestamp.slice(4, 6));
+    const hour = Number(timestamp.slice(6, 8));
+    const minute = Number(timestamp.slice(8, 10));
+
     return new Date(Date.UTC(year, month, day, hour, minute)).toISOString();
   }
 

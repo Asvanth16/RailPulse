@@ -77,6 +77,16 @@ export const alertRepository = {
     });
   },
 
+  async completeAlert(id: string): Promise<void> {
+    await prisma.alert.update({
+      where: { id },
+      data: {
+        isEnabled: false,
+        isTriggered: false,
+      },
+    });
+  },
+
   async updateLastChecked(id: string): Promise<void> {
     await prisma.alert.update({
       where: { id },

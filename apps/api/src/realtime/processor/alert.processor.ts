@@ -6,7 +6,21 @@ import { notificationService } from "../notifications/notification.service";
 import { alertRepository } from "../../repositories/alert.repository";
 
 export class AlertProcessor {
+
   async processDelay(alert: AlertWithUser, train: LiveStopDto): Promise<void> {
+    
+    if (alertEngine.hasPassedStation(train)) {
+      await alertRepository.completeAlert(alert.id);
+
+      console.log(
+        `🏁 Alert completed for ${alert.trainNumber}. Train has passed ${alert.monitorStationName}.`,
+      );
+
+      return;
+    }
+
+    const isDelayed = alertEngine.isDelayed(train);
+
     const shouldTrigger = alertEngine.shouldTriggerDelay(alert, train);
 
     if (shouldTrigger) {
@@ -28,7 +42,7 @@ export class AlertProcessor {
       return;
     }
 
-    if (alert.isTriggered) {
+    if (!isDelayed && alert.isTriggered) {
       await alertRepository.resetTriggered(alert.id);
 
       console.log(`🔄 Alert reset for ${alert.trainNumber}.`);

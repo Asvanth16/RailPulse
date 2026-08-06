@@ -16,20 +16,21 @@ export class EmailService {
   }
 
   async send(payload: EmailPayload): Promise<void> {
-    try {
-      await this.resend.emails.send({
-        from: env.EMAIL_FROM,
-        to: payload.to,
-        subject: payload.subject,
-        html: payload.html,
-      });
+    const { data, error } = await this.resend.emails.send({
+      from: env.EMAIL_FROM,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+    });
 
-      console.log(`📧 Email sent to ${payload.to}`);
-    } catch (error) {
-      console.error("❌ Failed to send email:", error);
+    if (error) {
+      console.error("❌ Resend Error:");
+      console.error(error);
 
-      throw error;
+      throw new Error(error.message);
     }
+
+    console.log(`📧 Email accepted by Resend (ID: ${data?.id})`);
   }
 }
 
