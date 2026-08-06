@@ -334,6 +334,7 @@ model Alert {
 
   isEnabled Boolean @default(true)
   isTriggered Boolean @default(false)
+  lastTriggeredAt DateTime?
 
   lastCheckedAt DateTime?
 

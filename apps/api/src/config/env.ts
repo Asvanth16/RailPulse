@@ -26,4 +26,10 @@ export const env = {
   REDIS_HOST: requireEnv("REDIS_HOST"),
   REDIS_PORT: Number(requireEnv("REDIS_PORT")),
   REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+
+  REALTIME_POLLING_INTERVAL_MS:
+    Number(process.env.REALTIME_POLLING_INTERVAL_MS) || 30000,
+
+  RESEND_API_KEY: requireEnv("RESEND_API_KEY"),
+  EMAIL_FROM: requireEnv("EMAIL_FROM"),
 };

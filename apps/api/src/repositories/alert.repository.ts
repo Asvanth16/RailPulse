@@ -42,8 +42,46 @@ export const alertRepository = {
         alertType,
         isEnabled: true,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: "asc",
+      },
+    });
+  },
+
+  async markTriggered(id: string, triggeredAt: Date): Promise<void> {
+    await prisma.alert.update({
+      where: { id },
+      data: {
+        isTriggered: true,
+        lastTriggeredAt: triggeredAt,
+      },
+    });
+  },
+
+  async resetTriggered(id: string): Promise<void> {
+    await prisma.alert.update({
+      where: { id },
+      data: {
+        isTriggered: false,
+      },
+    });
+  },
+
+  async updateLastChecked(id: string): Promise<void> {
+    await prisma.alert.update({
+      where: { id },
+      data: {
+        lastCheckedAt: new Date(),
       },
     });
   },

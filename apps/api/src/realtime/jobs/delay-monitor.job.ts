@@ -1,7 +1,7 @@
 import { Job } from "./job.interface";
-
 import { alertRepository } from "../../repositories/alert.repository";
 import { liveTrainMonitor } from "../monitor/live-train.monitor";
+import { alertProcessor } from "../processor/alert.processor";
 
 export class DelayMonitorJob implements Job {
   readonly name = "delay-monitor";
@@ -15,11 +15,10 @@ export class DelayMonitorJob implements Job {
 
     for (const alert of alerts) {
       if (!alert.trainNumber || !alert.monitorStationEva) {
-        console.warn(
-          `Skipping alert ${alert.id}: missing train number or monitor station.`,
-        );
         continue;
       }
+
+      await alertRepository.updateLastChecked(alert.id);
 
       const train = await liveTrainMonitor.findTrainAtStation(
         alert.monitorStationEva,
@@ -27,16 +26,10 @@ export class DelayMonitorJob implements Job {
       );
 
       if (!train) {
-        console.log(
-          `🚫 Train ${alert.trainNumber} not found at ${alert.monitorStationName} (${alert.monitorStationEva}).`,
-        );
         continue;
       }
 
-      console.log(`✅ Train ${alert.trainNumber} found:`, train);
-
-      // Next step:
-      // Pass 'train' and 'alert' to the Alert Engine.
+      await alertProcessor.processDelay(alert, train);
     }
   }
 }
