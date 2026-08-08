@@ -332,6 +332,8 @@ model Alert {
 
   alertType AlertType
 
+  reminderMinutes Int?
+
   isEnabled Boolean @default(true)
   isTriggered Boolean @default(false)
   lastTriggeredAt DateTime?

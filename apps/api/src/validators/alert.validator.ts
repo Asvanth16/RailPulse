@@ -14,6 +14,8 @@ export const createAlertSchema = z.object({
   monitorStationEva: z.number().int().optional(),
   monitorStationName: z.string().trim().optional(),
 
+  reminderMinutes: z.number().int().min(1).max(1440).optional(),
+
   alertType: z.enum([
     "DELAY",
     "PLATFORM_CHANGE",

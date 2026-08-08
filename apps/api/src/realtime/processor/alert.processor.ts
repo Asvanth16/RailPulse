@@ -132,6 +132,67 @@ export class AlertProcessor {
       console.log(`🔄 Cancellation alert reset for ${alert.trainNumber}.`);
     }
   }
+
+  async processReminder(
+    alert: AlertWithUser,
+    train: LiveStopDto,
+  ): Promise<void> {
+    if (alert.isTriggered) {
+      return;
+    }
+
+    let shouldTrigger = false;
+
+    switch (alert.alertType) {
+      case "DEPARTURE_REMINDER":
+        shouldTrigger = alertEngine.shouldTriggerDepartureReminder(
+          alert,
+          train,
+        );
+        break;
+
+      case "ARRIVAL_REMINDER":
+        shouldTrigger = alertEngine.shouldTriggerArrivalReminder(alert, train);
+        break;
+
+      default:
+        return;
+    }
+
+    if (!shouldTrigger) {
+      return;
+    }
+
+    if (alert.alertType === "DEPARTURE_REMINDER") {
+      await notificationService.sendDepartureReminder({
+        userId: alert.userId,
+        email: alert.user.email,
+        firstName: alert.user.firstName,
+        title: "🚆 Departure Reminder",
+        trainNumber: alert.trainNumber!,
+        stationName: alert.monitorStationName!,
+        reminderMinutes: alert.reminderMinutes ?? 15,
+        departureTime: train.actualDeparture ?? train.plannedDeparture,
+      });
+    }
+
+    if (alert.alertType === "ARRIVAL_REMINDER") {
+      await notificationService.sendArrivalReminder({
+        userId: alert.userId,
+        email: alert.user.email,
+        firstName: alert.user.firstName,
+        title: "🚆 Arrival Reminder",
+        trainNumber: alert.trainNumber!,
+        stationName: alert.monitorStationName!,
+        reminderMinutes: alert.reminderMinutes ?? 15,
+        arrivalTime: train.actualArrival ?? train.plannedArrival,
+      });
+    }
+
+    await alertRepository.markTriggered(alert.id, new Date());
+
+    console.log(`✅ ${alert.alertType} triggered for ${alert.trainNumber}.`);
+  }
 }
 
 export const alertProcessor = new AlertProcessor();

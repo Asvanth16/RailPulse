@@ -57,6 +57,51 @@ export class AlertEngine {
   shouldTriggerCancellation(alert: Alert, train: LiveStopDto): boolean {
     return this.isCancelled(train) && !alert.isTriggered;
   }
+
+  isDepartureReminderDue(alert: Alert, train: LiveStopDto): boolean {
+    const departureTime = train.actualDeparture ?? train.plannedDeparture;
+
+    if (!departureTime) {
+      return false;
+    }
+
+    const departureTimestamp = new Date(departureTime).getTime();
+
+    const now = Date.now();
+
+    const remainingMinutes =
+      (departureTimestamp - now) / MILLISECONDS_PER_MINUTE;
+
+    const reminderMinutes = alert.reminderMinutes ?? 15;
+
+    return remainingMinutes > 0 && remainingMinutes <= reminderMinutes;
+  }
+
+  shouldTriggerDepartureReminder(alert: Alert, train: LiveStopDto): boolean {
+    return this.isDepartureReminderDue(alert, train) && !alert.isTriggered;
+  }
+
+  isArrivalReminderDue(alert: Alert, train: LiveStopDto): boolean {
+    const arrivalTime = train.actualArrival ?? train.plannedArrival;
+
+    if (!arrivalTime) {
+      return false;
+    }
+
+    const arrivalTimestamp = new Date(arrivalTime).getTime();
+
+    const now = Date.now();
+
+    const remainingMinutes = (arrivalTimestamp - now) / MILLISECONDS_PER_MINUTE;
+
+    const reminderMinutes = alert.reminderMinutes ?? 15;
+
+    return remainingMinutes > 0 && remainingMinutes <= reminderMinutes;
+  }
+
+  shouldTriggerArrivalReminder(alert: Alert, train: LiveStopDto): boolean {
+    return this.isArrivalReminderDue(alert, train) && !alert.isTriggered;
+  }
 }
 
 export const alertEngine = new AlertEngine();

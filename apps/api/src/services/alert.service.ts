@@ -27,8 +27,10 @@ export const alertService = {
 
       case "DEPARTURE_REMINDER":
       case "ARRIVAL_REMINDER":
-        if (!data.journeyId && !data.trainNumber) {
-          throw new BadRequestError("Journey ID or train number is required.");
+        if (!data.trainNumber || !data.monitorStationEva) {
+          throw new BadRequestError(
+            "Train number and monitor station are required for reminder alerts.",
+          );
         }
         break;
     }

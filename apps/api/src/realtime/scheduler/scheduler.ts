@@ -3,6 +3,7 @@ import { jobRegistry } from "../jobs/job.registry";
 import { DelayMonitorJob } from "../jobs/delay-monitor.job";
 import { PlatformMonitorJob } from "../jobs/platform-monitor.job";
 import { CancellationMonitorJob } from "../jobs/cancellation-monitor.job";
+import { ReminderMonitorJob } from "../jobs/reminder-monitor.job";
 
 export class Scheduler {
   private timeoutId: NodeJS.Timeout | null = null;
@@ -15,6 +16,7 @@ export class Scheduler {
     jobRegistry.register(new DelayMonitorJob());
     jobRegistry.register(new PlatformMonitorJob());
     jobRegistry.register(new CancellationMonitorJob());
+    jobRegistry.register(new ReminderMonitorJob());
   }
 
   async start(): Promise<void> {
