@@ -30,6 +30,6 @@ export const env = {
   REALTIME_POLLING_INTERVAL_MS:
     Number(process.env.REALTIME_POLLING_INTERVAL_MS) || 30000,
 
-  RESEND_API_KEY: requireEnv("RESEND_API_KEY"),
+  BREVO_API_KEY: requireEnv("BREVO_API_KEY"),
   EMAIL_FROM: requireEnv("EMAIL_FROM"),
 };

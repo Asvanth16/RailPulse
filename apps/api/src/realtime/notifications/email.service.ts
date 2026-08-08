@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { BrevoClient } from "@getbrevo/brevo";
 
 import { env } from "../../config/env";
 
@@ -9,28 +9,42 @@ export interface EmailPayload {
 }
 
 export class EmailService {
-  private readonly resend: Resend;
+  private readonly brevo: BrevoClient;
 
   constructor() {
-    this.resend = new Resend(env.RESEND_API_KEY);
+    this.brevo = new BrevoClient({
+      apiKey: env.BREVO_API_KEY,
+    });
   }
 
   async send(payload: EmailPayload): Promise<void> {
-    const { data, error } = await this.resend.emails.send({
-      from: env.EMAIL_FROM,
-      to: payload.to,
-      subject: payload.subject,
-      html: payload.html,
-    });
+    try {
+      const response =
+        await this.brevo.transactionalEmails.sendTransacEmail({
+          sender: {
+            email: env.EMAIL_FROM,
+            name: "RailPulse",
+          },
+          to: [
+            {
+              email: payload.to,
+            },
+          ],
+          subject: payload.subject,
+          htmlContent: payload.html,
+        });
 
-    if (error) {
-      console.error("❌ Resend Error:");
-      console.error(error);
+      console.log(
+        `📧 Email accepted by Brevo (ID: ${response.messageId})`,
+      );
+    } catch (error) {
+      console.error(
+        "❌ Failed to send email through Brevo:",
+        error,
+      );
 
-      throw new Error(error.message);
+      throw error;
     }
-
-    console.log(`📧 Email accepted by Resend (ID: ${data?.id})`);
   }
 }
 
