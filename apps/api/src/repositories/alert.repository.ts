@@ -58,6 +58,25 @@ export const alertRepository = {
     });
   },
 
+  async findEnabledMonitorStations(): Promise<number[]> {
+    const alerts = await prisma.alert.findMany({
+      where: {
+        isEnabled: true,
+        monitorStationEva: {
+          not: null,
+        },
+      },
+      select: {
+        monitorStationEva: true,
+      },
+      distinct: ["monitorStationEva"],
+    });
+
+    return alerts
+      .map((alert) => alert.monitorStationEva)
+      .filter((eva): eva is number => eva !== null);
+  },
+
   async markTriggered(id: string, triggeredAt: Date): Promise<void> {
     await prisma.alert.update({
       where: { id },

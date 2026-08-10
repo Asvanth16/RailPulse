@@ -4,8 +4,26 @@ import { LiveStopDto } from "../../dto/live";
 import { alertEngine } from "../engine/alert.engine";
 import { notificationService } from "../notifications/notification.service";
 import { alertRepository } from "../../repositories/alert.repository";
+import { webSocketAlertPublisher } from "../websocket/websocket.alert-publisher";
 
 export class AlertProcessor {
+  private publishAlert(
+    alert: AlertWithUser,
+    train: LiveStopDto,
+    title: string,
+    message: string,
+  ): void {
+    webSocketAlertPublisher.publishAlertTriggered(alert.userId, {
+      alertId: alert.id,
+      alertType: alert.alertType,
+      trainNumber: alert.trainNumber!,
+      stationEva: alert.monitorStationEva ?? train.stationEva,
+      title,
+      message,
+      triggeredAt: new Date().toISOString(),
+    });
+  }
+
   async processDelay(alert: AlertWithUser, train: LiveStopDto): Promise<void> {
     if (alertEngine.hasPassedStation(train)) {
       await alertRepository.completeAlert(alert.id);
@@ -32,6 +50,15 @@ export class AlertProcessor {
         delayMinutes:
           train.departureDelayMinutes ?? train.arrivalDelayMinutes ?? 0,
       });
+
+      this.publishAlert(
+        alert,
+        train,
+        "🚆 Train Delay Alert",
+        `Your train ${alert.trainNumber} is delayed by ${
+          train.departureDelayMinutes ?? train.arrivalDelayMinutes ?? 0
+        } minute(s) at ${alert.monitorStationName}.`,
+      );
 
       await alertRepository.markTriggered(alert.id, new Date());
 
@@ -77,6 +104,15 @@ export class AlertProcessor {
         actualPlatform: train.actualPlatform!,
       });
 
+      this.publishAlert(
+        alert,
+        train,
+        "🚉 Platform Change Alert",
+        `Your train ${alert.trainNumber} has changed platform from ${
+          train.plannedPlatform
+        } to ${train.actualPlatform} at ${alert.monitorStationName}.`,
+      );
+
       await alertRepository.markTriggered(alert.id, new Date());
 
       console.log(`✅ Platform alert triggered for ${alert.trainNumber}.`);
@@ -118,6 +154,13 @@ export class AlertProcessor {
         trainNumber: alert.trainNumber!,
         stationName: alert.monitorStationName!,
       });
+
+      this.publishAlert(
+        alert,
+        train,
+        "❌ Train Cancellation Alert",
+        `Your train ${alert.trainNumber} has been cancelled at ${alert.monitorStationName}.`,
+      );
 
       await alertRepository.markTriggered(alert.id, new Date());
 
@@ -174,6 +217,15 @@ export class AlertProcessor {
         reminderMinutes: alert.reminderMinutes ?? 15,
         departureTime: train.actualDeparture ?? train.plannedDeparture,
       });
+
+      this.publishAlert(
+        alert,
+        train,
+        "🚆 Departure Reminder",
+        `Your train ${alert.trainNumber} departs from ${alert.monitorStationName} in approximately ${
+          alert.reminderMinutes ?? 15
+        } minute(s).`,
+      );
     }
 
     if (alert.alertType === "ARRIVAL_REMINDER") {
@@ -187,6 +239,15 @@ export class AlertProcessor {
         reminderMinutes: alert.reminderMinutes ?? 15,
         arrivalTime: train.actualArrival ?? train.plannedArrival,
       });
+
+      this.publishAlert(
+        alert,
+        train,
+        "🚆 Arrival Reminder",
+        `Your train ${alert.trainNumber} is expected to arrive at ${alert.monitorStationName} in approximately ${
+          alert.reminderMinutes ?? 15
+        } minute(s).`,
+      );
     }
 
     await alertRepository.markTriggered(alert.id, new Date());

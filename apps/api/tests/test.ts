@@ -5,7 +5,11 @@ async function main(): Promise<void> {
   const eva = "8000105"; // Frankfurt (Main) Hbf
 
   try {
-    const { date, hour } = DbTimeUtil.getCurrentPlanRequest();
+    const current = DbTimeUtil.getCurrentPlanRequest();
+
+    const hour = String((Number(current.hour) + 1) % 24).padStart(2, "0");
+
+    const date = current.date;
 
     console.log("======================================");
     console.log("🚆 Deutsche Bahn Active Trains");
@@ -15,12 +19,11 @@ async function main(): Promise<void> {
     console.log(`Plan Hour   : ${hour}:00`);
     console.log("======================================\n");
 
-    const timetable =
-      await deutscheBahnProvider.getPlannedTimetable(
-        eva,
-        date,
-        hour,
-      );
+    const timetable = await deutscheBahnProvider.getPlannedTimetable(
+      eva,
+      date,
+      hour,
+    );
 
     const trains = timetable.stops
       .filter(
@@ -30,15 +33,11 @@ async function main(): Promise<void> {
       )
       .sort((a, b) => {
         const ta = new Date(
-          a.plannedDeparture ??
-            a.plannedArrival ??
-            0,
+          a.plannedDeparture ?? a.plannedArrival ?? 0,
         ).getTime();
 
         const tb = new Date(
-          b.plannedDeparture ??
-            b.plannedArrival ??
-            0,
+          b.plannedDeparture ?? b.plannedArrival ?? 0,
         ).getTime();
 
         return ta - tb;
@@ -47,49 +46,25 @@ async function main(): Promise<void> {
     console.log(`Found ${trains.length} trains\n`);
 
     for (const stop of trains) {
-      console.log(
-        `${stop.train.category} ${stop.train.trainNumber}`,
-      );
+      console.log(`${stop.train.category} ${stop.train.trainNumber}`);
+
+      console.log(`Arrival           : ${stop.plannedArrival ?? "-"}`);
+
+      console.log(`Actual Arrival    : ${stop.actualArrival ?? "-"}`);
+
+      console.log(`Departure         : ${stop.plannedDeparture ?? "-"}`);
+
+      console.log(`Actual Departure  : ${stop.actualDeparture ?? "-"}`);
 
       console.log(
-        `Arrival           : ${stop.plannedArrival ?? "-"}`,
+        `Platform          : ${stop.plannedPlatform ?? stop.platform ?? "-"}`,
       );
 
-      console.log(
-        `Actual Arrival    : ${stop.actualArrival ?? "-"}`,
-      );
+      console.log(`Cancelled         : ${stop.cancelled}`);
 
-      console.log(
-        `Departure         : ${stop.plannedDeparture ?? "-"}`,
-      );
+      console.log(`Arrival Delay     : ${stop.arrivalDelayMinutes ?? 0} min`);
 
-      console.log(
-        `Actual Departure  : ${stop.actualDeparture ?? "-"}`,
-      );
-
-      console.log(
-        `Platform          : ${
-          stop.plannedPlatform ??
-          stop.platform ??
-          "-"
-        }`,
-      );
-
-      console.log(
-        `Cancelled         : ${stop.cancelled}`,
-      );
-
-      console.log(
-        `Arrival Delay     : ${
-          stop.arrivalDelayMinutes ?? 0
-        } min`,
-      );
-
-      console.log(
-        `Departure Delay   : ${
-          stop.departureDelayMinutes ?? 0
-        } min`,
-      );
+      console.log(`Departure Delay   : ${stop.departureDelayMinutes ?? 0} min`);
 
       console.log("--------------------------------------");
     }
@@ -97,10 +72,7 @@ async function main(): Promise<void> {
     console.log("======================================");
     console.log("✅ Active train test completed.");
   } catch (error) {
-    console.error(
-      "❌ Failed to fetch active trains:",
-      error,
-    );
+    console.error("❌ Failed to fetch active trains:", error);
 
     process.exitCode = 1;
   }

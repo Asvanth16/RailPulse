@@ -4,6 +4,7 @@ import { DelayMonitorJob } from "../jobs/delay-monitor.job";
 import { PlatformMonitorJob } from "../jobs/platform-monitor.job";
 import { CancellationMonitorJob } from "../jobs/cancellation-monitor.job";
 import { ReminderMonitorJob } from "../jobs/reminder-monitor.job";
+import { LiveTrainUpdateJob } from "../jobs/live-train-update.job";
 
 export class Scheduler {
   private timeoutId: NodeJS.Timeout | null = null;
@@ -13,6 +14,8 @@ export class Scheduler {
   private isRunning = false;
 
   constructor() {
+    jobRegistry.register(new LiveTrainUpdateJob());
+    
     jobRegistry.register(new DelayMonitorJob());
     jobRegistry.register(new PlatformMonitorJob());
     jobRegistry.register(new CancellationMonitorJob());
