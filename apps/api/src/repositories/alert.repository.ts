@@ -152,4 +152,90 @@ export const alertRepository = {
       },
     });
   },
+
+  async findAllForOperations(): Promise<Alert[]> {
+    return prisma.alert.findMany({
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+  },
+
+  async getOperationsStatistics() {
+    const [
+      total,
+      enabled,
+      triggered,
+      disabled,
+      delay,
+      platformChange,
+      cancellation,
+      departureReminder,
+      arrivalReminder,
+    ] = await Promise.all([
+      prisma.alert.count(),
+
+      prisma.alert.count({
+        where: {
+          isEnabled: true,
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          isTriggered: true,
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          isEnabled: false,
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          alertType: "DELAY",
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          alertType: "PLATFORM_CHANGE",
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          alertType: "CANCELLATION",
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          alertType: "DEPARTURE_REMINDER",
+        },
+      }),
+
+      prisma.alert.count({
+        where: {
+          alertType: "ARRIVAL_REMINDER",
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      enabled,
+      triggered,
+      disabled,
+      byType: {
+        DELAY: delay,
+        PLATFORM_CHANGE: platformChange,
+        CANCELLATION: cancellation,
+        DEPARTURE_REMINDER: departureReminder,
+        ARRIVAL_REMINDER: arrivalReminder,
+      },
+    };
+  },
 };

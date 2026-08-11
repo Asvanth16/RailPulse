@@ -36,6 +36,38 @@ export interface TrainUpdatedPayload {
   updatedAt: string;
 }
 
+export interface TrainDelayUpdatedPayload {
+  trainNumber: string;
+
+  stationEva: number;
+
+  arrivalDelayMinutes: number;
+  departureDelayMinutes: number;
+
+  updatedAt: string;
+}
+
+export interface TrainPlatformChangedPayload {
+  trainNumber: string;
+
+  stationEva: number;
+
+  plannedPlatform: string | null;
+  actualPlatform: string | null;
+
+  updatedAt: string;
+}
+
+export interface TrainCancelledPayload {
+  trainNumber: string;
+
+  stationEva: number;
+
+  cancelled: boolean;
+
+  updatedAt: string;
+}
+
 export interface SubscribeTrainPayload {
   trainNumber: string;
 }

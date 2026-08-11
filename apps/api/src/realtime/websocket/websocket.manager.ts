@@ -1,6 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { WebSocketRooms } from "./websocket.rooms";
-
+import { WebSocketEvent } from "./websocket.types";
 import {
   ConnectionReadyPayload,
   SubscribeTrainPayload,
@@ -13,6 +13,21 @@ import {
 
 export class WebSocketManager {
   private io: Server | null = null;
+
+  private eventCounts: Record<WebSocketEvent, number> = {
+    "connection:ready": 0,
+    "subscription:success": 0,
+    "subscription:error": 0,
+    "train:updated": 0,
+    "train:delay_updated": 0,
+    "train:platform_changed": 0,
+    "train:cancelled": 0,
+    "alert:triggered": 0,
+  };
+
+  private lastEvent: WebSocketEvent | null = null;
+
+  private lastEventAt: string | null = null;
 
   initialize(io: Server): void {
     this.io = io;
@@ -126,6 +141,100 @@ export class WebSocketManager {
 
     return this.io.sockets.sockets.size;
   }
+
+  getStatus(): {
+    initialized: boolean;
+    connectedClients: number;
+  } {
+    return {
+      initialized: this.io !== null,
+      connectedClients: this.getConnectedClientCount(),
+    };
+  }
+
+  getSubscriptionStatus(): {
+    trainSubscriptions: {
+      trainNumber: string;
+      clientCount: number;
+    }[];
+
+    userSubscriptions: {
+      userId: string;
+      clientCount: number;
+    }[];
+  } {
+    if (!this.io) {
+      return {
+        trainSubscriptions: [],
+        userSubscriptions: [],
+      };
+    }
+
+    const rooms = this.io.sockets.adapter.rooms;
+
+    const trainSubscriptions: {
+      trainNumber: string;
+      clientCount: number;
+    }[] = [];
+
+    const userSubscriptions: {
+      userId: string;
+      clientCount: number;
+    }[] = [];
+
+    for (const [room, sockets] of rooms) {
+      if (room.startsWith("train:")) {
+        trainSubscriptions.push({
+          trainNumber: room.substring("train:".length),
+          clientCount: sockets.size,
+        });
+
+        continue;
+      }
+
+      if (room.startsWith("user:")) {
+        userSubscriptions.push({
+          userId: room.substring("user:".length),
+          clientCount: sockets.size,
+        });
+      }
+    }
+
+    return {
+      trainSubscriptions,
+      userSubscriptions,
+    };
+  }
+
+  recordEvent(event: WebSocketEvent): void {
+    this.eventCounts[event] += 1;
+
+    this.lastEvent = event;
+    this.lastEventAt = new Date().toISOString();
+  }
+
+  getEventStatus(): {
+    totalEvents: number;
+    eventsByType: Record<WebSocketEvent, number>;
+    lastEvent: WebSocketEvent | null;
+    lastEventAt: string | null;
+  } {
+    const totalEvents = Object.values(this.eventCounts).reduce(
+      (total, count) => total + count,
+      0,
+    );
+
+    return {
+      totalEvents,
+      eventsByType: {
+        ...this.eventCounts,
+      },
+      lastEvent: this.lastEvent,
+      lastEventAt: this.lastEventAt,
+    };
+  }
+
+  
 }
 
 export const webSocketManager = new WebSocketManager();

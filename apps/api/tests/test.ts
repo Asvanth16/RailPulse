@@ -7,7 +7,7 @@ async function main(): Promise<void> {
   try {
     const current = DbTimeUtil.getCurrentPlanRequest();
 
-    const hour = String((Number(current.hour) + 1) % 24).padStart(2, "0");
+    const hour = current.hour;
 
     const date = current.date;
 

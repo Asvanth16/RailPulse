@@ -7,10 +7,7 @@ import {
 } from "./websocket.types";
 
 export class WebSocketAlertPublisher {
-  publishAlertTriggered(
-    userId: string,
-    payload: AlertTriggeredPayload,
-  ): void {
+  publishAlertTriggered(userId: string, payload: AlertTriggeredPayload): void {
     const event: WebSocketEventPayload<AlertTriggeredPayload> = {
       event: "alert:triggered",
       data: payload,
@@ -21,11 +18,12 @@ export class WebSocketAlertPublisher {
       .to(WebSocketRooms.user(userId))
       .emit("alert:triggered", event.data);
 
+    webSocketManager.recordEvent("alert:triggered");
+
     console.log(
       `🔔 WebSocket alert published: ${payload.alertType} → user ${userId}`,
     );
   }
 }
 
-export const webSocketAlertPublisher =
-  new WebSocketAlertPublisher();
+export const webSocketAlertPublisher = new WebSocketAlertPublisher();
