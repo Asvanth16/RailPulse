@@ -11,7 +11,6 @@ import type {
 
 import AlertMonitor from "../components/AlertMonitor";
 import LiveTrainMonitor from "../components/LiveTrainMonitor";
-import WebSocketMonitor from "../components/WebSocketMonitor";
 
 function OperationsDashboard() {
   const [system, setSystem] = useState<SystemStatus | null>(null);
@@ -25,8 +24,6 @@ function OperationsDashboard() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
-
-  const [trainToSubscribe, setTrainToSubscribe] = useState("2841");
 
   useEffect(() => {
     async function loadDashboard() {
@@ -144,7 +141,6 @@ function OperationsDashboard() {
 
       <AlertMonitor />
       <LiveTrainMonitor />
-      <WebSocketMonitor />
     </div>
   );
 }
