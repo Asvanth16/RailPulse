@@ -33,23 +33,34 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     },
   });
 
-  const data = await response.json();
+  let data: unknown;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
       localStorage.removeItem("railpulse_access_token");
-
       localStorage.removeItem("railpulse_user");
 
       window.dispatchEvent(new Event("railpulse:auth-expired"));
     }
 
-    throw new Error(
-      data?.message ?? `Request failed with status ${response.status}`,
-    );
+    const message =
+      typeof data === "object" &&
+      data !== null &&
+      "message" in data &&
+      typeof data.message === "string"
+        ? data.message
+        : `Request failed with status ${response.status}`;
+
+    throw new Error(message);
   }
 
-  return data;
+  return data as T;
 }
 
 export const operationsApi = {
@@ -86,7 +97,10 @@ export const operationsApi = {
   async getLiveTrains(
     stationEva?: number,
   ): Promise<ApiResponse<LiveTrainsResponse>> {
-    const query = stationEva !== undefined ? `?stationEva=${stationEva}` : "";
+    const query =
+      stationEva !== undefined
+        ? `?stationEva=${encodeURIComponent(stationEva)}`
+        : "";
 
     return request<ApiResponse<LiveTrainsResponse>>(
       `/operations/trains${query}`,
@@ -96,7 +110,9 @@ export const operationsApi = {
   async getLiveTrain(
     trainNumber: string | number,
   ): Promise<ApiResponse<LiveTrain>> {
-    return request<ApiResponse<LiveTrain>>(`/operations/trains/${trainNumber}`);
+    return request<ApiResponse<LiveTrain>>(
+      `/operations/trains/${encodeURIComponent(trainNumber)}`,
+    );
   },
 
   async getAlerts(): Promise<ApiResponse<OperationsAlert[]>> {
@@ -110,6 +126,8 @@ export const operationsApi = {
   },
 
   async getAlert(id: string): Promise<ApiResponse<OperationsAlert>> {
-    return request<ApiResponse<OperationsAlert>>(`/operations/alerts/${id}`);
+    return request<ApiResponse<OperationsAlert>>(
+      `/operations/alerts/${encodeURIComponent(id)}`,
+    );
   },
 };

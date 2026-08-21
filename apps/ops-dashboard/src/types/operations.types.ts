@@ -4,14 +4,17 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+/* =========================
+   Operations Overview
+========================= */
+
 export interface OperationsOverview {
   service: string;
-  status: string;
-  environment: string;
-  nodeVersion: string;
-  uptimeSeconds: number;
-  generatedAt: string;
 }
+
+/* =========================
+   System
+========================= */
 
 export interface SystemStatus {
   service: string;
@@ -21,6 +24,10 @@ export interface SystemStatus {
   uptimeSeconds: number;
   generatedAt: string;
 }
+
+/* =========================
+   Scheduler
+========================= */
 
 export interface SchedulerJobStatus {
   name: string;
@@ -37,6 +44,10 @@ export interface SchedulerStatus {
   lastCycleCompletedAt: string | null;
   jobs: SchedulerJobStatus[];
 }
+
+/* =========================
+   WebSocket
+========================= */
 
 export interface WebSocketStatus {
   status: string;
@@ -68,6 +79,10 @@ export interface WebSocketEventStatus {
   lastEventAt: string | null;
 }
 
+/* =========================
+   Live Trains
+========================= */
+
 export interface LiveTrain {
   stationEva: number;
 
@@ -93,12 +108,14 @@ export interface LiveTrain {
     tripType?: string;
   };
 
-  messages?: {
-    id: string;
-    type: string;
-    text: string;
-    priority?: string;
-  }[];
+  messages?: LiveTrainMessage[];
+}
+
+export interface LiveTrainMessage {
+  id: string;
+  type: string;
+  text: string;
+  priority?: string;
 }
 
 export interface LiveTrainsResponse {
@@ -106,6 +123,10 @@ export interface LiveTrainsResponse {
   count: number;
   trains: LiveTrain[];
 }
+
+/* =========================
+   Alerts
+========================= */
 
 export type AlertType =
   | "DELAY"
@@ -146,4 +167,26 @@ export interface AlertStatistics {
     DEPARTURE_REMINDER: number;
     ARRIVAL_REMINDER: number;
   };
+}
+
+export type OperationalUpdateType =
+  "DELAY_CHANGED" | "PLATFORM_CHANGED" | "CANCELLED";
+
+export interface OperationalUpdate {
+  id: string;
+
+  type: OperationalUpdateType;
+
+  trainNumber: string;
+  category: string;
+
+  stationEva: number;
+
+  previousValue?: string | number | boolean | null;
+
+  currentValue?: string | number | boolean | null;
+
+  message: string;
+
+  detectedAt: string;
 }
