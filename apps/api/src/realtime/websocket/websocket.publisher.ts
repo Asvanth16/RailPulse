@@ -1,6 +1,7 @@
 import { LiveStopDto } from "../../dto/live";
 
 import { webSocketManager } from "./websocket.manager";
+
 import {
   TrainUpdatedPayload,
   TrainDelayUpdatedPayload,
@@ -8,13 +9,16 @@ import {
   TrainCancelledPayload,
   WebSocketEventPayload,
 } from "./websocket.types";
+
 import { WebSocketRooms } from "./websocket.rooms";
 
 export class WebSocketPublisher {
+  // =========================
+  // Train Updated
+  // =========================
+
   publishTrainUpdated(train: LiveStopDto): void {
     const trainNumber = String(train.train.trainNumber).trim();
-
-    const room = WebSocketRooms.train(trainNumber);
 
     const payload: TrainUpdatedPayload = {
       trainNumber,
@@ -51,22 +55,41 @@ export class WebSocketPublisher {
 
     const io = webSocketManager.getServer();
 
-    const roomSize = io.sockets.adapter.rooms.get(room)?.size ?? 0;
+    const trainRoom = WebSocketRooms.train(trainNumber);
+
+    const operationsRoom = WebSocketRooms.operations();
+
+    const trainRoomSize = io.sockets.adapter.rooms.get(trainRoom)?.size ?? 0;
+
+    const operationsRoomSize =
+      io.sockets.adapter.rooms.get(operationsRoom)?.size ?? 0;
 
     console.log(`📡 Publishing train update`);
 
-    console.log(`   Train     : ${trainNumber}`);
+    console.log(`   Train             : ${trainNumber}`);
 
-    console.log(`   Room      : ${room}`);
+    console.log(`   Station EVA       : ${train.stationEva}`);
 
-    console.log(`   Clients   : ${roomSize}`);
+    console.log(`   Train room clients: ${trainRoomSize}`);
 
-    console.log(`   Event     : ${event.event}`);
+    console.log(`   Operations clients: ${operationsRoomSize}`);
 
-    io.to(room).emit("train:updated", event.data);
+    console.log(`   Event             : ${event.event}`);
+
+    // Train-specific subscribers.
+    io.to(trainRoom).emit("train:updated", event.data);
+
+    // Operations Dashboard subscribers.
+    io.to(operationsRoom).emit("train:updated", event.data);
+
+    webSocketManager.recordEvent("train:updated");
 
     console.log(`📡 WebSocket train update published: ${trainNumber}`);
   }
+
+  // =========================
+  // Delay Updated
+  // =========================
 
   publishTrainDelayUpdated(train: LiveStopDto): void {
     const payload: TrainDelayUpdatedPayload = {
@@ -83,16 +106,28 @@ export class WebSocketPublisher {
 
     const event: WebSocketEventPayload<TrainDelayUpdatedPayload> = {
       event: "train:delay_updated",
+
       data: payload,
     };
 
-    webSocketManager
-      .getServer()
-      .to(WebSocketRooms.train(payload.trainNumber))
-      .emit("train:delay_updated", event.data);
+    const io = webSocketManager.getServer();
+
+    const trainRoom = WebSocketRooms.train(payload.trainNumber);
+
+    const operationsRoom = WebSocketRooms.operations();
+
+    io.to(trainRoom).emit("train:delay_updated", event.data);
+
+    io.to(operationsRoom).emit("train:delay_updated", event.data);
+
+    webSocketManager.recordEvent("train:delay_updated");
 
     console.log(`⏱️ WebSocket delay update published: ${payload.trainNumber}`);
   }
+
+  // =========================
+  // Platform Changed
+  // =========================
 
   publishTrainPlatformChanged(train: LiveStopDto): void {
     const payload: TrainPlatformChangedPayload = {
@@ -109,18 +144,30 @@ export class WebSocketPublisher {
 
     const event: WebSocketEventPayload<TrainPlatformChangedPayload> = {
       event: "train:platform_changed",
+
       data: payload,
     };
 
-    webSocketManager
-      .getServer()
-      .to(WebSocketRooms.train(payload.trainNumber))
-      .emit("train:platform_changed", event.data);
+    const io = webSocketManager.getServer();
+
+    const trainRoom = WebSocketRooms.train(payload.trainNumber);
+
+    const operationsRoom = WebSocketRooms.operations();
+
+    io.to(trainRoom).emit("train:platform_changed", event.data);
+
+    io.to(operationsRoom).emit("train:platform_changed", event.data);
+
+    webSocketManager.recordEvent("train:platform_changed");
 
     console.log(
       `🚉 WebSocket platform update published: ${payload.trainNumber}`,
     );
   }
+
+  // =========================
+  // Cancelled
+  // =========================
 
   publishTrainCancelled(train: LiveStopDto): void {
     const payload: TrainCancelledPayload = {
@@ -135,13 +182,21 @@ export class WebSocketPublisher {
 
     const event: WebSocketEventPayload<TrainCancelledPayload> = {
       event: "train:cancelled",
+
       data: payload,
     };
 
-    webSocketManager
-      .getServer()
-      .to(WebSocketRooms.train(payload.trainNumber))
-      .emit("train:cancelled", event.data);
+    const io = webSocketManager.getServer();
+
+    const trainRoom = WebSocketRooms.train(payload.trainNumber);
+
+    const operationsRoom = WebSocketRooms.operations();
+
+    io.to(trainRoom).emit("train:cancelled", event.data);
+
+    io.to(operationsRoom).emit("train:cancelled", event.data);
+
+    webSocketManager.recordEvent("train:cancelled");
 
     console.log(
       `🚫 WebSocket cancellation update published: ${payload.trainNumber}`,

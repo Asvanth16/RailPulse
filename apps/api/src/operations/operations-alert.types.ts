@@ -1,9 +1,13 @@
 import { AlertType } from "../generated/prisma/enums";
 
+export type OperationalAlertSeverity = "CRITICAL" | "WARNING" | "INFO";
+
 export interface OperationsAlertDto {
   id: string;
 
   alertType: AlertType;
+
+  severity: OperationalAlertSeverity;
 
   trainNumber: string | null;
 

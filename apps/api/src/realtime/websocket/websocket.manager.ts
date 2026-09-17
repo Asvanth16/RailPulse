@@ -1,13 +1,17 @@
 import { Server, Socket } from "socket.io";
+
 import { WebSocketRooms } from "./websocket.rooms";
-import { WebSocketEvent } from "./websocket.types";
+
 import {
   ConnectionReadyPayload,
+  OperationsSubscriptionSuccessPayload,
+  SubscribeOperationsPayload,
   SubscribeTrainPayload,
   SubscriptionErrorPayload,
   SubscriptionSuccessPayload,
   SubscribeUserPayload,
   UserSubscriptionSuccessPayload,
+  WebSocketEvent,
   WebSocketEventPayload,
 } from "./websocket.types";
 
@@ -44,6 +48,7 @@ export class WebSocketManager {
 
     const payload: WebSocketEventPayload<ConnectionReadyPayload> = {
       event: "connection:ready",
+
       data: {
         socketId: socket.id,
         connectedAt: new Date().toISOString(),
@@ -52,6 +57,10 @@ export class WebSocketManager {
 
     socket.on("subscribe:train", (payload: SubscribeTrainPayload) => {
       this.subscribeToTrain(socket, payload);
+    });
+
+    socket.on("subscribe:operations", (payload: SubscribeOperationsPayload) => {
+      this.subscribeToOperations(socket, payload);
     });
 
     socket.on("subscribe:user", (payload: SubscribeUserPayload) => {
@@ -68,6 +77,10 @@ export class WebSocketManager {
   private handleDisconnect(socket: Socket, reason: string): void {
     console.log(`🔌 WebSocket client disconnected: ${socket.id} (${reason})`);
   }
+
+  // =========================
+  // Train subscription
+  // =========================
 
   private subscribeToTrain(
     socket: Socket,
@@ -100,6 +113,32 @@ export class WebSocketManager {
     socket.emit("subscription:success", response);
   }
 
+  // =========================
+  // Operations subscription
+  // =========================
+
+  private subscribeToOperations(
+    socket: Socket,
+    _payload: SubscribeOperationsPayload,
+  ): void {
+    const room = WebSocketRooms.operations();
+
+    socket.join(room);
+
+    console.log(`📡 Client ${socket.id} subscribed to operations`);
+
+    const response: OperationsSubscriptionSuccessPayload = {
+      subscription: "operations",
+      room,
+    };
+
+    socket.emit("subscription:success", response);
+  }
+
+  // =========================
+  // User subscription
+  // =========================
+
   private subscribeToUser(socket: Socket, payload: SubscribeUserPayload): void {
     const userId = payload?.userId?.trim();
 
@@ -126,6 +165,10 @@ export class WebSocketManager {
     socket.emit("subscription:success", response);
   }
 
+  // =========================
+  // Server
+  // =========================
+
   getServer(): Server {
     if (!this.io) {
       throw new Error("WebSocket server has not been initialized.");
@@ -142,6 +185,10 @@ export class WebSocketManager {
     return this.io.sockets.sockets.size;
   }
 
+  // =========================
+  // Status
+  // =========================
+
   getStatus(): {
     initialized: boolean;
     connectedClients: number;
@@ -151,6 +198,10 @@ export class WebSocketManager {
       connectedClients: this.getConnectedClientCount(),
     };
   }
+
+  // =========================
+  // Subscription status
+  // =========================
 
   getSubscriptionStatus(): {
     trainSubscriptions: {
@@ -162,11 +213,14 @@ export class WebSocketManager {
       userId: string;
       clientCount: number;
     }[];
+
+    operationsSubscribers: number;
   } {
     if (!this.io) {
       return {
         trainSubscriptions: [],
         userSubscriptions: [],
+        operationsSubscribers: 0,
       };
     }
 
@@ -182,10 +236,13 @@ export class WebSocketManager {
       clientCount: number;
     }[] = [];
 
+    let operationsSubscribers = 0;
+
     for (const [room, sockets] of rooms) {
       if (room.startsWith("train:")) {
         trainSubscriptions.push({
           trainNumber: room.substring("train:".length),
+
           clientCount: sockets.size,
         });
 
@@ -195,21 +252,34 @@ export class WebSocketManager {
       if (room.startsWith("user:")) {
         userSubscriptions.push({
           userId: room.substring("user:".length),
+
           clientCount: sockets.size,
         });
+
+        continue;
+      }
+
+      if (room === WebSocketRooms.operations()) {
+        operationsSubscribers = sockets.size;
       }
     }
 
     return {
       trainSubscriptions,
       userSubscriptions,
+      operationsSubscribers,
     };
   }
+
+  // =========================
+  // Event tracking
+  // =========================
 
   recordEvent(event: WebSocketEvent): void {
     this.eventCounts[event] += 1;
 
     this.lastEvent = event;
+
     this.lastEventAt = new Date().toISOString();
   }
 
@@ -226,15 +296,16 @@ export class WebSocketManager {
 
     return {
       totalEvents,
+
       eventsByType: {
         ...this.eventCounts,
       },
+
       lastEvent: this.lastEvent,
+
       lastEventAt: this.lastEventAt,
     };
   }
-
-  
 }
 
 export const webSocketManager = new WebSocketManager();

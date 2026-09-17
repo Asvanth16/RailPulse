@@ -1,52 +1,58 @@
 import { LiveStopDto } from "../../dto/live";
 
 export class LiveStopMerger {
-  merge(
-    planned: LiveStopDto,
-    changed?: LiveStopDto,
-  ): LiveStopDto {
+  merge(planned: LiveStopDto, changed?: LiveStopDto): LiveStopDto {
     return {
       ...planned,
 
-      plannedArrival:
-        planned.plannedArrival,
+      // =========================
+      // Planned values
+      // =========================
 
-      plannedDeparture:
-        planned.plannedDeparture,
+      plannedArrival: planned.plannedArrival,
 
-      plannedPlatform:
-        planned.plannedPlatform,
+      plannedDeparture: planned.plannedDeparture,
 
-      actualArrival:
-        changed?.actualArrival ??
-        planned.actualArrival,
+      plannedPlatform: planned.plannedPlatform,
 
-      actualDeparture:
-        changed?.actualDeparture ??
-        planned.actualDeparture,
+      // =========================
+      // Live values
+      // =========================
 
-      actualPlatform:
-        changed?.actualPlatform ??
-        planned.actualPlatform,
+      actualArrival: changed?.actualArrival ?? planned.actualArrival,
+
+      actualDeparture: changed?.actualDeparture ?? planned.actualDeparture,
+
+      actualPlatform: changed?.actualPlatform ?? planned.actualPlatform,
 
       arrivalDelayMinutes:
-        changed?.arrivalDelayMinutes ??
-        planned.arrivalDelayMinutes,
+        changed?.arrivalDelayMinutes ?? planned.arrivalDelayMinutes,
 
       departureDelayMinutes:
-        changed?.departureDelayMinutes ??
-        planned.departureDelayMinutes,
+        changed?.departureDelayMinutes ?? planned.departureDelayMinutes,
 
-      cancelled:
-        changed?.cancelled ??
-        planned.cancelled,
+      cancelled: changed?.cancelled ?? planned.cancelled,
 
-      messages:
-        changed?.messages ??
-        planned.messages,
+      messages: changed?.messages ?? planned.messages,
+
+      // =========================
+      // Route information
+      // =========================
+
+      /*
+       * Prefer the changed/live path when available,
+       * because Deutsche Bahn's cpth represents the
+       * currently changed route.
+       */
+      previousStations: changed?.previousStations ?? planned.previousStations,
+
+      nextStations: changed?.nextStations ?? planned.nextStations,
+
+      origin: changed?.origin ?? planned.origin,
+
+      destination: changed?.destination ?? planned.destination,
     };
   }
 }
 
-export const liveStopMerger =
-  new LiveStopMerger();
+export const liveStopMerger = new LiveStopMerger();

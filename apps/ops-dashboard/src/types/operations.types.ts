@@ -1,3 +1,7 @@
+/* =========================
+   Generic API Response
+========================= */
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -80,6 +84,40 @@ export interface WebSocketEventStatus {
 }
 
 /* =========================
+   Operations Stations
+========================= */
+
+/**
+ * Station returned directly from the
+ * Deutsche Bahn station search.
+ */
+export interface OperationsStation {
+  eva: number;
+  ds100: string;
+  name: string;
+}
+
+/**
+ * Station explicitly selected by
+ * Operations for realtime monitoring.
+ */
+export interface OperationsMonitoredStation {
+  id: string;
+  eva: number;
+  ds100: string;
+  name: string;
+  isEnabled: boolean;
+}
+
+/**
+ * Response returned by the monitored
+ * stations endpoint.
+ */
+export interface OperationsMonitoredStationsResponse {
+  stations: OperationsMonitoredStation[];
+}
+
+/* =========================
    Live Trains
 ========================= */
 
@@ -92,13 +130,33 @@ export interface LiveTrain {
   plannedDeparture?: string;
   actualDeparture?: string;
 
-  plannedPlatform?: number;
-  actualPlatform?: number;
+  plannedPlatform?: number | string;
+  actualPlatform?: number | string;
 
   arrivalDelayMinutes?: number;
   departureDelayMinutes?: number;
 
   cancelled: boolean;
+
+  /**
+   * Stations before the current station.
+   */
+  previousStations?: string[];
+
+  /**
+   * Stations after the current station.
+   */
+  nextStations?: string[];
+
+  /**
+   * Best-effort origin station.
+   */
+  origin?: string;
+
+  /**
+   * Best-effort final destination.
+   */
+  destination?: string;
 
   train: {
     trainNumber: number | string;
@@ -125,61 +183,17 @@ export interface LiveTrainsResponse {
 }
 
 /* =========================
-   Alerts
+   Operational Updates
 ========================= */
 
-export type AlertType =
-  | "DELAY"
-  | "PLATFORM_CHANGE"
-  | "CANCELLATION"
-  | "DEPARTURE_REMINDER"
-  | "ARRIVAL_REMINDER";
-
-export interface OperationsAlert {
-  id: string;
-  alertType: AlertType;
-
-  trainNumber: string | null;
-
-  monitorStationEva: number | null;
-  monitorStationName: string | null;
-
-  isEnabled: boolean;
-  isTriggered: boolean;
-
-  lastCheckedAt: string | null;
-  lastTriggeredAt: string | null;
-
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface AlertStatistics {
-  total: number;
-  enabled: number;
-  triggered: number;
-  disabled: number;
-
-  byType: {
-    DELAY: number;
-    PLATFORM_CHANGE: number;
-    CANCELLATION: number;
-    DEPARTURE_REMINDER: number;
-    ARRIVAL_REMINDER: number;
-  };
-}
-
 export type OperationalUpdateType =
-  "DELAY_CHANGED" | "PLATFORM_CHANGED" | "CANCELLED";
+  "DELAY_CHANGED" | "PLATFORM_CHANGED" | "CANCELLED" | "STATUS_CHANGED";
 
 export interface OperationalUpdate {
   id: string;
-
   type: OperationalUpdateType;
-
   trainNumber: string;
   category: string;
-
   stationEva: number;
 
   previousValue?: string | number | boolean | null;
@@ -187,6 +201,35 @@ export interface OperationalUpdate {
   currentValue?: string | number | boolean | null;
 
   message: string;
-
   detectedAt: string;
+}
+
+/* =========================
+   Operational History
+========================= */
+
+export type OperationalHistoryType =
+  "DELAY_CHANGED" | "PLATFORM_CHANGED" | "CANCELLATION" | "STATUS_CHANGED";
+
+export interface OperationalHistoryEntry {
+  id: string;
+  trainNumber: string;
+  trainRunId: string;
+
+  type: OperationalHistoryType;
+
+  previousValue: string | null;
+  currentValue: string | null;
+
+  message: string;
+
+  occurredAt: string;
+  createdAt: string;
+
+  stationEva: number | null;
+}
+
+export interface RecentOperationalHistoryEntry
+  extends OperationalHistoryEntry {
+  category: string;
 }

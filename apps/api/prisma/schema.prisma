@@ -24,7 +24,7 @@ model RailwayOrganization {
 
   isActive Boolean @default(true)
 
-  users User[]
+  users  User[]
   trains Train[]
 
   createdAt DateTime @default(now())
@@ -45,24 +45,23 @@ model User {
   role UserRole @default(PASSENGER)
 
   organizationId String?
-  organization RailwayOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organization   RailwayOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   phoneNumber String? @unique
 
   isVerified Boolean @default(false)
   isActive   Boolean @default(true)
 
-  favoriteStations FavoriteStation[]
-  savedJourneys SavedJourney[]
-  recentSearches RecentSearch[]
-  alerts Alert[]
+  favoriteStations       FavoriteStation[]
+  savedJourneys          SavedJourney[]
+  recentSearches         RecentSearch[]
+  alerts                 Alert[]
   notificationPreference NotificationPreference?
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
-  
 }
 
 enum TrainType {
@@ -83,7 +82,7 @@ model Train {
   operator String
 
   organizationId String?
-  organization RailwayOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organization   RailwayOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   isActive Boolean @default(true)
 
@@ -118,6 +117,22 @@ model Station {
   @@index([city])
 }
 
+model OperationsMonitoredStation {
+  id String @id @default(cuid())
+
+  eva  Int    @unique
+  ds100 String
+  name String
+
+  isEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isEnabled])
+  @@index([name])
+}
+
 enum JourneyStatus {
   SCHEDULED
   BOARDING
@@ -144,7 +159,7 @@ model Journey {
   schedules Schedule[]
 
   trainRuns TrainRun[]
-  alerts Alert[]
+  alerts    Alert[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,6 +235,13 @@ enum TrainRunStatus {
   CANCELLED
 }
 
+enum OperationalHistoryType {
+  DELAY_CHANGED
+  PLATFORM_CHANGED
+  CANCELLATION
+  STATUS_CHANGED
+}
+
 model TrainRun {
   id String @id @default(cuid())
 
@@ -235,11 +257,38 @@ model TrainRun {
 
   isActive Boolean @default(true)
 
+  operationalHistory OperationalHistory[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([journeyId])
   @@index([serviceDate])
+}
+
+model OperationalHistory {
+  id String @id @default(cuid())
+
+  trainRunId String
+  trainRun   TrainRun @relation(fields: [trainRunId], references: [id], onDelete: Cascade)
+
+  stationEva Int?
+
+  type OperationalHistoryType
+
+  previousValue String?
+  currentValue  String?
+
+  message String
+
+  occurredAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([trainRunId])
+  @@index([stationEva])
+  @@index([occurredAt])
+  @@index([trainRunId, occurredAt])
 }
 
 model FavoriteStation {
@@ -274,9 +323,8 @@ model SavedJourney {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId])
-
   @@unique([userId, fromStationEva, toStationEva])
+  @@index([userId])
 }
 
 enum SearchType {
@@ -288,37 +336,35 @@ model RecentSearch {
   id String @id @default(cuid())
 
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   searchType SearchType
 
   query String?
 
-  fromStationEva Int?
+  fromStationEva  Int?
   fromStationName String?
 
-  toStationEva Int?
+  toStationEva  Int?
   toStationName String?
 
   createdAt DateTime @default(now())
 
-  @@index([userId])
-
   @@unique([userId, searchType, query])
-
   @@unique([userId, searchType, fromStationEva, toStationEva])
+  @@index([userId])
 }
 
 model NotificationPreference {
   id String @id @default(cuid())
 
   userId String @unique
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  pushNotifications Boolean @default(true)
+  pushNotifications  Boolean @default(true)
   emailNotifications Boolean @default(true)
 
-  delayAlerts Boolean @default(true)
+  delayAlerts          Boolean @default(true)
   platformChangeAlerts Boolean @default(true)
 
   departureReminders Boolean @default(true)
@@ -341,28 +387,28 @@ model Alert {
   id String @id @default(cuid())
 
   userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   trainNumber String?
 
   journeyId String?
-  journey Journey? @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  journey   Journey? @relation(fields: [journeyId], references: [id], onDelete: Cascade)
 
-  fromStationEva Int?
+  fromStationEva  Int?
   fromStationName String?
 
-  toStationEva Int?
+  toStationEva  Int?
   toStationName String?
 
-  monitorStationEva Int?
+  monitorStationEva  Int?
   monitorStationName String?
 
   alertType AlertType
 
   reminderMinutes Int?
 
-  isEnabled Boolean @default(true)
-  isTriggered Boolean @default(false)
+  isEnabled       Boolean   @default(true)
+  isTriggered     Boolean   @default(false)
   lastTriggeredAt DateTime?
 
   lastCheckedAt DateTime?

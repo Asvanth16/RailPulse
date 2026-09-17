@@ -33,8 +33,8 @@ export interface TrainUpdatedEvent {
   arrivalDelayMinutes: number;
   departureDelayMinutes: number;
 
-  plannedPlatform: number | null;
-  actualPlatform: number | null;
+  plannedPlatform: string | null;
+  actualPlatform: string | null;
 
   cancelled: boolean;
 
@@ -89,3 +89,20 @@ export interface AlertTriggeredEvent {
 
   triggeredAt: string;
 }
+export type OperationsWebSocketEvent =
+  | {
+      type: "train:updated";
+      data: TrainUpdatedEvent;
+    }
+  | {
+      type: "train:delay_updated";
+      data: TrainDelayUpdatedEvent;
+    }
+  | {
+      type: "train:platform_changed";
+      data: TrainPlatformChangedEvent;
+    }
+  | {
+      type: "train:cancelled";
+      data: TrainCancelledEvent;
+    };

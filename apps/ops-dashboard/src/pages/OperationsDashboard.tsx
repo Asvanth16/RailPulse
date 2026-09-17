@@ -3,16 +3,16 @@ import { useEffect, useState } from "react";
 import { operationsApi } from "../api/operations.api";
 
 import type {
+  OperationalUpdate,
   SystemStatus,
   SchedulerStatus,
   WebSocketStatus,
-  LiveTrainsResponse,
 } from "../types/operations.types";
 
-import AlertMonitor from "../components/AlertMonitor";
 import RecentOperationalUpdates from "../components/RecentOperationalUpdates";
 
 import { useOperationalUpdates } from "../hooks/useOperationalUpdates";
+import { useOperationsWebSocket } from "../hooks/useOperationsWebSocket";
 
 interface OperationsDashboardProps {
   onNavigateToLiveTrains: () => void;
@@ -29,8 +29,6 @@ function OperationsDashboard({
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
-  const [liveTrains, setLiveTrains] = useState<LiveTrainsResponse | null>(null);
-
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
@@ -41,13 +39,32 @@ function OperationsDashboard({
 
   const [webSocketError, setWebSocketError] = useState<string | null>(null);
 
-  const [liveTrainsError, setLiveTrainsError] = useState<string | null>(null);
+  const [persistedUpdates, setPersistedUpdates] = useState<
+    OperationalUpdate[]
+  >([]);
 
   // =========================
   // Operational Updates
   // =========================
 
-  const { updates, processSnapshot } = useOperationalUpdates();
+  const { updates, processRealtimeEvent } = useOperationalUpdates();
+
+  /*
+   * The backend already publishes operational changes to the Operations room.
+   * Subscribe on this page so the recent-updates panel receives them instead
+   * of waiting for a Live Trains snapshot that the dashboard never loads.
+   */
+  useOperationsWebSocket({
+    onEvent: processRealtimeEvent,
+  });
+
+  const visibleUpdates = [...updates, ...persistedUpdates]
+    .sort(
+      (first, second) =>
+        new Date(second.detectedAt).getTime() -
+        new Date(first.detectedAt).getTime(),
+    )
+    .slice(0, 10);
 
   // =========================
   // Dashboard refresh
@@ -60,17 +77,20 @@ function OperationsDashboard({
       setSystemError(null);
       setSchedulerError(null);
       setWebSocketError(null);
-      setLiveTrainsError(null);
 
       const results = await Promise.allSettled([
         operationsApi.getSystemStatus(),
         operationsApi.getSchedulerStatus(),
         operationsApi.getWebSocketStatus(),
-        operationsApi.getLiveTrains(),
+        operationsApi.getRecentOperationalHistory(),
       ]);
 
-      const [systemResult, schedulerResult, webSocketResult, liveTrainsResult] =
-        results;
+      const [
+        systemResult,
+        schedulerResult,
+        webSocketResult,
+        historyResult,
+      ] = results;
 
       // =========================
       // System
@@ -115,22 +135,25 @@ function OperationsDashboard({
       }
 
       // =========================
-      // Live Trains
+      // Recent operational history
       // =========================
 
-      if (liveTrainsResult.status === "fulfilled") {
-        const trainsData = liveTrainsResult.value.data;
-
-        setLiveTrains(trainsData);
-
-        // Compare the new snapshot
-        // against the previous one.
-        processSnapshot(trainsData.trains);
-      } else {
-        setLiveTrainsError(
-          liveTrainsResult.reason instanceof Error
-            ? liveTrainsResult.reason.message
-            : "Failed to load live trains",
+      if (historyResult.status === "fulfilled") {
+        setPersistedUpdates(
+          historyResult.value.data.history.map((entry) => ({
+            id: entry.id,
+            type:
+              entry.type === "CANCELLATION"
+                ? "CANCELLED"
+                : entry.type,
+            trainNumber: entry.trainNumber,
+            category: entry.category,
+            stationEva: entry.stationEva ?? 0,
+            previousValue: entry.previousValue,
+            currentValue: entry.currentValue,
+            message: entry.message,
+            detectedAt: entry.occurredAt,
+          })),
         );
       }
 
@@ -152,8 +175,7 @@ function OperationsDashboard({
     // Initial load
     loadDashboard();
 
-    // Existing dashboard refresh.
-    // DO NOT add another interval.
+    // Refresh dashboard system information.
     const interval = window.setInterval(loadDashboard, 30_000);
 
     return () => {
@@ -295,21 +317,9 @@ function OperationsDashboard({
         <div className="dashboard-card">
           <h2>Live Trains</h2>
 
-          {liveTrainsError ? (
-            <p className="error-message">{liveTrainsError}</p>
-          ) : liveTrains ? (
-            <>
-              <p className="large-number">{liveTrains.count}</p>
+          <p>Select a station to monitor live trains.</p>
 
-              <p>Currently monitored</p>
-
-              <button onClick={onNavigateToLiveTrains}>
-                View All Live Trains
-              </button>
-            </>
-          ) : (
-            <p>Loading live trains...</p>
-          )}
+          <button onClick={onNavigateToLiveTrains}>View Live Trains</button>
         </div>
       </section>
 
@@ -317,13 +327,7 @@ function OperationsDashboard({
           Recent Operational Updates
           ========================= */}
 
-      <RecentOperationalUpdates updates={updates} />
-
-      {/* =========================
-          Alerts
-          ========================= */}
-
-      <AlertMonitor />
+      <RecentOperationalUpdates updates={visibleUpdates} />
     </div>
   );
 }

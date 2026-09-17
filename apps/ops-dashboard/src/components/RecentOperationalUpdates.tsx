@@ -15,6 +15,9 @@ function getUpdateIcon(type: OperationalUpdate["type"]) {
     case "DELAY_CHANGED":
       return "🟠";
 
+    case "STATUS_CHANGED":
+      return "🔵";
+
     default:
       return "ℹ️";
   }
@@ -30,6 +33,9 @@ function getUpdateLabel(type: OperationalUpdate["type"]) {
 
     case "DELAY_CHANGED":
       return "Delay Changed";
+
+    case "STATUS_CHANGED":
+      return "Status Changed";
 
     default:
       return "Operational Update";

@@ -36,18 +36,12 @@ function App() {
     };
   }, []);
 
-  // =========================
-  // Authentication
-  // =========================
-
   if (!authenticated) {
     return (
       <Login
         onLoginSuccess={() => {
           setAuthenticated(true);
-
           setCurrentPage("dashboard");
-
           setSelectedTrain(null);
         }}
       />
@@ -58,7 +52,10 @@ function App() {
   // Train Details
   // =========================
 
-  if (currentPage === "train-details" && selectedTrain) {
+  if (
+    currentPage === "train-details" &&
+    selectedTrain
+  ) {
     return (
       <TrainDetailsPage
         trainNumber={String(selectedTrain.train.trainNumber)}
@@ -84,17 +81,7 @@ function App() {
           setCurrentPage("dashboard");
         }}
         onNavigateToTrainDetails={(train) => {
-          /*
-           * Keep the complete LiveTrain snapshot.
-           *
-           * stationEva is part of the LiveTrain contract
-           * and is required by Train Details.
-           */
-          setSelectedTrain({
-            ...train,
-            stationEva: train.stationEva,
-          });
-
+          setSelectedTrain(train);
           setCurrentPage("train-details");
         }}
       />

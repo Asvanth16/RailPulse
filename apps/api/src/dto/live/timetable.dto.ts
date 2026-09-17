@@ -50,6 +50,36 @@ export interface LiveStopDto {
   cancelled: boolean;
 
   /**
+   * Stations this train passed through before this stop,
+   * in journey order.
+   *
+   * Derived from the DB path field.
+   */
+  previousStations?: string[];
+
+  /**
+   * Stations this train will pass through after this stop,
+   * in journey order.
+   *
+   * Derived from the DB path field.
+   */
+  nextStations?: string[];
+
+  /**
+   * First station in the train's journey.
+   *
+   * Best-effort value derived from the DB path data.
+   */
+  origin?: string;
+
+  /**
+   * Final station in the train's journey.
+   *
+   * Best-effort value derived from the DB path data.
+   */
+  destination?: string;
+
+  /**
    * Train information
    */
   train: LiveTrainDto;
@@ -58,21 +88,4 @@ export interface LiveStopDto {
    * Associated messages
    */
   messages: LiveMessageDto[];
-}
-
-export interface LiveTimetableDto {
-  /**
-   * Station EVA number
-   */
-  stationEva: number;
-
-  /**
-   * Time when this response was generated (ISO 8601)
-   */
-  generatedAt: string;
-
-  /**
-   * Live timetable stops
-   */
-  stops: LiveStopDto[];
 }

@@ -1,5 +1,7 @@
 import { prisma } from "../lib/prisma";
+
 import { Alert } from "../generated/prisma/models";
+
 import { AlertType } from "../generated/prisma/enums";
 
 import {
@@ -8,6 +10,10 @@ import {
 } from "../validators/alert.validator";
 
 export const alertRepository = {
+  // ========================================
+  // Create
+  // ========================================
+
   async create(userId: string, data: CreateAlertInput): Promise<Alert> {
     return prisma.alert.create({
       data: {
@@ -17,6 +23,10 @@ export const alertRepository = {
     });
   },
 
+  // ========================================
+  // Find by ID
+  // ========================================
+
   async findById(id: string): Promise<Alert | null> {
     return prisma.alert.findUnique({
       where: {
@@ -24,6 +34,10 @@ export const alertRepository = {
       },
     });
   },
+
+  // ========================================
+  // Find by user
+  // ========================================
 
   async findByUserId(userId: string): Promise<Alert[]> {
     return prisma.alert.findMany({
@@ -36,12 +50,17 @@ export const alertRepository = {
     });
   },
 
+  // ========================================
+  // Enabled alerts by type
+  // ========================================
+
   async findEnabledByType(alertType: AlertType) {
     return prisma.alert.findMany({
       where: {
         alertType,
         isEnabled: true,
       },
+
       include: {
         user: {
           select: {
@@ -52,23 +71,31 @@ export const alertRepository = {
           },
         },
       },
+
       orderBy: {
         createdAt: "asc",
       },
     });
   },
 
+  // ========================================
+  // Enabled monitor stations
+  // ========================================
+
   async findEnabledMonitorStations(): Promise<number[]> {
     const alerts = await prisma.alert.findMany({
       where: {
         isEnabled: true,
+
         monitorStationEva: {
           not: null,
         },
       },
+
       select: {
         monitorStationEva: true,
       },
+
       distinct: ["monitorStationEva"],
     });
 
@@ -77,9 +104,16 @@ export const alertRepository = {
       .filter((eva): eva is number => eva !== null);
   },
 
+  // ========================================
+  // Trigger alert
+  // ========================================
+
   async markTriggered(id: string, triggeredAt: Date): Promise<void> {
     await prisma.alert.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         isTriggered: true,
         lastTriggeredAt: triggeredAt,
@@ -87,18 +121,32 @@ export const alertRepository = {
     });
   },
 
+  // ========================================
+  // Reset triggered state
+  // ========================================
+
   async resetTriggered(id: string): Promise<void> {
     await prisma.alert.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         isTriggered: false,
       },
     });
   },
 
+  // ========================================
+  // Complete alert
+  // ========================================
+
   async completeAlert(id: string): Promise<void> {
     await prisma.alert.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         isEnabled: false,
         isTriggered: false,
@@ -106,23 +154,39 @@ export const alertRepository = {
     });
   },
 
+  // ========================================
+  // Last checked
+  // ========================================
+
   async updateLastChecked(id: string): Promise<void> {
     await prisma.alert.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         lastCheckedAt: new Date(),
       },
     });
   },
 
+  // ========================================
+  // Update
+  // ========================================
+
   async update(id: string, data: UpdateAlertInput): Promise<Alert> {
     return prisma.alert.update({
       where: {
         id,
       },
+
       data,
     });
   },
+
+  // ========================================
+  // Delete
+  // ========================================
 
   async delete(id: string): Promise<Alert> {
     return prisma.alert.delete({
@@ -131,6 +195,10 @@ export const alertRepository = {
       },
     });
   },
+
+  // ========================================
+  // Duplicate detection
+  // ========================================
 
   async findDuplicate(
     userId: string,
@@ -152,6 +220,10 @@ export const alertRepository = {
       },
     });
   },
+
+  // ========================================
+  // Operations - all alerts
+  // ========================================
 
   async findAllForOperations(): Promise<Alert[]> {
     return prisma.alert.findMany({

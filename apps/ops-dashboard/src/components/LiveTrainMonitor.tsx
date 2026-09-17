@@ -1,31 +1,54 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { operationsApi } from "../api/operations.api";
 
-import type { LiveTrain, LiveTrainsResponse } from "../types/operations.types";
+import type {
+  LiveTrain,
+  LiveTrainsResponse,
+  OperationsStation,
+} from "../types/operations.types";
+
+import { getTrainOperationalStatus } from "../utils/trainStatus";
+
+import { useOperationsWebSocket } from "../hooks/useOperationsWebSocket";
+
+import type { OperationsWebSocketEvent } from "../websocket/websocket.types";
+
+interface LiveTrainMonitorProps {
+  onNavigateToTrainDetails: (train: LiveTrain) => void;
+}
 
 type TrainStatus =
   "ALL" | "RUNNING" | "DELAYED" | "PLATFORM_CHANGED" | "CANCELLED";
 
-function LiveTrainMonitor() {
-  const [data, setData] = useState<LiveTrainsResponse | null>(null);
+function LiveTrainMonitor({ onNavigateToTrainDetails }: LiveTrainMonitorProps) {
+  // =========================
+  // Station state
+  // =========================
 
-  const [selectedTrain, setSelectedTrain] = useState<LiveTrain | null>(null);
+  const [stations, setStations] = useState<OperationsStation[]>([]);
+
+  const [selectedStation, setSelectedStation] =
+    useState<OperationsStation | null>(null);
+
+  // =========================
+  // Live train state
+  // =========================
+
+  const [data, setData] = useState<LiveTrainsResponse | null>(null);
 
   const [loading, setLoading] = useState(true);
 
+  const [stationLoading, setStationLoading] = useState(true);
+
   const [refreshing, setRefreshing] = useState(false);
 
-  const [detailsLoading, setDetailsLoading] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
-
-  const [detailsError, setDetailsError] = useState<string | null>(null);
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   // =========================
-  // Filters
+  // Train filters
   // =========================
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,53 +58,493 @@ function LiveTrainMonitor() {
   const [statusFilter, setStatusFilter] = useState<TrainStatus>("ALL");
 
   // =========================
-  // Load live trains
+  // Station search
   // =========================
 
-  const loadTrains = useCallback(async (initialLoad = false) => {
-    try {
-      if (initialLoad) {
-        setLoading(true);
-      } else {
-        setRefreshing(true);
-      }
+  const [stationSearchTerm, setStationSearchTerm] = useState("");
 
+  const [showStationSuggestions, setShowStationSuggestions] = useState(false);
+
+  /*
+   * Keep the latest realtime timestamp outside React state.
+   *
+   * This prevents stale/out-of-order WebSocket events from
+   * overwriting newer data without causing the WebSocket hook
+   * to reconnect whenever a timestamp changes.
+   */
+  const realtimeUpdatedAtRef = useRef<Record<string, string>>({});
+
+  // =========================
+  // Load stations
+  // =========================
+
+  const loadStations = useCallback(async () => {
+    try {
+      setStationLoading(true);
       setError(null);
 
-      const response = await operationsApi.getLiveTrains();
+      /*
+       * Current station source.
+       *
+       * This can later be replaced with the proper
+       * station-master source without changing the
+       * live train UI.
+       */
+      const response = await operationsApi.searchStations("*");
 
-      setData(response.data);
+      const stationData = response.data
+        .filter(
+          (station) =>
+            Number.isInteger(station.eva) && station.name.trim() !== "",
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      setLastUpdatedAt(new Date().toISOString());
+      setStations(stationData);
+
+      setSelectedStation((current) => {
+        if (current) {
+          const stillExists = stationData.find(
+            (station) => station.eva === current.eva,
+          );
+
+          if (stillExists) {
+            setStationSearchTerm(`${stillExists.name} (${stillExists.eva})`);
+
+            return stillExists;
+          }
+        }
+
+        const firstStation = stationData[0] ?? null;
+
+        if (firstStation) {
+          setStationSearchTerm(`${firstStation.name} (${firstStation.eva})`);
+        }
+
+        return firstStation;
+      });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load live trains";
-
-      setError(message);
+      setError(err instanceof Error ? err.message : "Failed to load stations");
     } finally {
-      if (initialLoad) {
-        setLoading(false);
-      } else {
-        setRefreshing(false);
-      }
+      setStationLoading(false);
     }
   }, []);
 
+  useEffect(() => {
+    void loadStations();
+  }, [loadStations]);
+
   // =========================
-  // Automatic refresh
+  // Filter station suggestions
+  // =========================
+
+  const filteredStations = useMemo(() => {
+    const query = stationSearchTerm.trim().toLowerCase();
+
+    if (!query) {
+      return [];
+    }
+
+    /*
+     * The displayed input contains:
+     *
+     * Station Name (EVA)
+     *
+     * Therefore remove the EVA portion when performing
+     * station-name matching.
+     */
+    const stationNameQuery = query.replace(/\s*\(\d+\)\s*$/, "").trim();
+
+    if (!stationNameQuery) {
+      return stations;
+    }
+
+    /*
+     * Prefix matching:
+     *
+     * B   -> stations beginning with B
+     * Bin -> stations beginning with Bin
+     */
+    return stations.filter((station) =>
+      station.name.trim().toLowerCase().startsWith(stationNameQuery),
+    );
+  }, [stations, stationSearchTerm]);
+
+  // =========================
+  // Select station
+  // =========================
+
+  function handleStationSelect(station: OperationsStation) {
+    setSelectedStation(station);
+
+    setStationSearchTerm(`${station.name} (${station.eva})`);
+
+    setShowStationSuggestions(false);
+  }
+
+  // =========================
+  // Load live trains
+  // =========================
+
+  const loadTrains = useCallback(
+    async (initialLoad = false) => {
+      if (!selectedStation) {
+        return;
+      }
+
+      try {
+        if (initialLoad) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+
+        setError(null);
+
+        const response = await operationsApi.getLiveTrains(selectedStation.eva);
+
+        setData(response.data);
+
+        setLastUpdatedAt(new Date().toISOString());
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load live trains",
+        );
+      } finally {
+        if (initialLoad) {
+          setLoading(false);
+        } else {
+          setRefreshing(false);
+        }
+      }
+    },
+    [selectedStation],
+  );
+
+  // =========================
+  // Reload when station changes
   // =========================
 
   useEffect(() => {
-    loadTrains(true);
+    if (!selectedStation) {
+      return;
+    }
 
+    /*
+     * Clear the previous station data
+     * while the new station is loading.
+     */
+    setData(null);
+
+    setLastUpdatedAt(null);
+
+    /*
+     * A new station has a different realtime event namespace.
+     * Discard timestamps from the previous station.
+     */
+    realtimeUpdatedAtRef.current = {};
+
+    void loadTrains(true);
+
+    /*
+     * Keep REST reconciliation as a fallback.
+     *
+     * WebSocket provides realtime updates.
+     * REST keeps the snapshot synchronized.
+     */
     const interval = window.setInterval(() => {
-      loadTrains(false);
+      void loadTrains(false);
     }, 30_000);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [loadTrains]);
+  }, [selectedStation, loadTrains]);
+
+  // =========================
+  // Realtime WebSocket events
+  // =========================
+
+  const handleRealtimeEvent = useCallback(
+    (event: OperationsWebSocketEvent) => {
+      if (!selectedStation) {
+        return;
+      }
+
+      /*
+       * Operations receives system-wide events.
+       *
+       * The Live Train page only applies events
+       * belonging to the currently selected station.
+       */
+      if (event.data.stationEva !== selectedStation.eva) {
+        return;
+      }
+
+      const trainNumber = String(event.data.trainNumber);
+      const eventUpdatedAt = event.data.updatedAt;
+      const previousUpdatedAt = realtimeUpdatedAtRef.current[trainNumber];
+
+      /*
+       * Ignore stale/out-of-order events.
+       */
+      if (previousUpdatedAt && eventUpdatedAt <= previousUpdatedAt) {
+        return;
+      }
+
+      realtimeUpdatedAtRef.current[trainNumber] = eventUpdatedAt;
+
+      setData((currentData) => {
+        if (!currentData) {
+          return currentData;
+        }
+
+        const existingIndex = currentData.trains.findIndex(
+          (train) =>
+            String(train.train.trainNumber) === trainNumber &&
+            train.stationEva === event.data.stationEva,
+        );
+
+        const currentTrains = [...currentData.trains];
+
+        // =========================
+        // Full train update
+        // =========================
+
+        if (event.type === "train:updated") {
+          const existingTrain =
+            existingIndex >= 0 ? currentData.trains[existingIndex] : undefined;
+
+          /*
+           * Destination is optional because the existing
+           * realtime event type may not contain it yet.
+           *
+           * When the event does contain destination, preserve
+           * it. Otherwise retain the destination from the
+           * existing REST snapshot.
+           */
+          const realtimeEventData = event.data as typeof event.data & {
+            destination?: string;
+            origin?: string;
+            previousStations?: string[];
+            nextStations?: string[];
+          };
+
+          const realtimeTrain: LiveTrain = {
+            stationEva: event.data.stationEva,
+
+            plannedArrival: event.data.plannedArrival ?? undefined,
+
+            actualArrival: event.data.actualArrival ?? undefined,
+
+            plannedDeparture: event.data.plannedDeparture ?? undefined,
+
+            actualDeparture: event.data.actualDeparture ?? undefined,
+
+            arrivalDelayMinutes: event.data.arrivalDelayMinutes,
+
+            departureDelayMinutes: event.data.departureDelayMinutes,
+
+            plannedPlatform: event.data.plannedPlatform ?? undefined,
+
+            actualPlatform: event.data.actualPlatform ?? undefined,
+
+            cancelled: event.data.cancelled,
+
+            /*
+             * Destination/origin/path information is retained
+             * when it exists on the existing LiveTrain object.
+             *
+             * The type assertion keeps this component compatible
+             * with the current LiveTrain type while allowing the
+             * backend's destination field to be displayed.
+             */
+            ...(realtimeEventData.destination !== undefined ||
+            (
+              existingTrain as LiveTrain & {
+                destination?: string;
+              }
+            )?.destination !== undefined
+              ? {
+                  destination:
+                    realtimeEventData.destination ??
+                    (
+                      existingTrain as LiveTrain & {
+                        destination?: string;
+                      }
+                    )?.destination,
+                }
+              : {}),
+
+            ...(realtimeEventData.origin !== undefined ||
+            (
+              existingTrain as LiveTrain & {
+                origin?: string;
+              }
+            )?.origin !== undefined
+              ? {
+                  origin:
+                    realtimeEventData.origin ??
+                    (
+                      existingTrain as LiveTrain & {
+                        origin?: string;
+                      }
+                    )?.origin,
+                }
+              : {}),
+
+            ...(realtimeEventData.previousStations !== undefined ||
+            (
+              existingTrain as LiveTrain & {
+                previousStations?: string[];
+              }
+            )?.previousStations !== undefined
+              ? {
+                  previousStations:
+                    realtimeEventData.previousStations ??
+                    (
+                      existingTrain as LiveTrain & {
+                        previousStations?: string[];
+                      }
+                    )?.previousStations,
+                }
+              : {}),
+
+            ...(realtimeEventData.nextStations !== undefined ||
+            (
+              existingTrain as LiveTrain & {
+                nextStations?: string[];
+              }
+            )?.nextStations !== undefined
+              ? {
+                  nextStations:
+                    realtimeEventData.nextStations ??
+                    (
+                      existingTrain as LiveTrain & {
+                        nextStations?: string[];
+                      }
+                    )?.nextStations,
+                }
+              : {}),
+
+            train: {
+              trainNumber: event.data.trainNumber,
+
+              category: event.data.category,
+
+              operator: existingTrain?.train.operator ?? "",
+
+              flags: existingTrain?.train.flags,
+
+              tripType: existingTrain?.train.tripType,
+            },
+
+            messages: existingTrain?.messages ?? [],
+          };
+
+          if (existingIndex >= 0) {
+            currentTrains[existingIndex] = realtimeTrain;
+          } else {
+            currentTrains.unshift(realtimeTrain);
+          }
+
+          return {
+            ...currentData,
+
+            count: currentTrains.length,
+
+            trains: currentTrains,
+          };
+        }
+
+        // =========================
+        // Delay update
+        // =========================
+
+        if (event.type === "train:delay_updated") {
+          if (existingIndex < 0) {
+            return currentData;
+          }
+
+          currentTrains[existingIndex] = {
+            ...currentTrains[existingIndex],
+
+            arrivalDelayMinutes: event.data.arrivalDelayMinutes,
+
+            departureDelayMinutes: event.data.departureDelayMinutes,
+          };
+
+          return {
+            ...currentData,
+
+            trains: currentTrains,
+          };
+        }
+
+        // =========================
+        // Platform update
+        // =========================
+
+        if (event.type === "train:platform_changed") {
+          if (existingIndex < 0) {
+            return currentData;
+          }
+
+          currentTrains[existingIndex] = {
+            ...currentTrains[existingIndex],
+
+            plannedPlatform: event.data.plannedPlatform ?? undefined,
+
+            actualPlatform: event.data.actualPlatform ?? undefined,
+          };
+
+          return {
+            ...currentData,
+
+            trains: currentTrains,
+          };
+        }
+
+        // =========================
+        // Cancellation
+        // =========================
+
+        if (event.type === "train:cancelled") {
+          if (existingIndex < 0) {
+            return currentData;
+          }
+
+          currentTrains[existingIndex] = {
+            ...currentTrains[existingIndex],
+
+            cancelled: event.data.cancelled,
+          };
+
+          return {
+            ...currentData,
+
+            trains: currentTrains,
+          };
+        }
+
+        return currentData;
+      });
+
+      setLastUpdatedAt(new Date().toISOString());
+    },
+    [selectedStation],
+  );
+
+  // =========================
+  // Operations WebSocket
+  // =========================
+
+  const {
+    connected: webSocketConnected,
+    subscribed: webSocketSubscribed,
+    error: webSocketError,
+  } = useOperationsWebSocket({
+    onEvent: handleRealtimeEvent,
+  });
 
   // =========================
   // Manual refresh
@@ -92,72 +555,7 @@ function LiveTrainMonitor() {
   }
 
   // =========================
-  // Load train details
-  // =========================
-
-  async function loadTrainDetails(trainNumber: string | number) {
-    try {
-      setDetailsLoading(true);
-      setDetailsError(null);
-
-      const response = await operationsApi.getLiveTrain(String(trainNumber));
-
-      setSelectedTrain(response.data);
-    } catch (err) {
-      setDetailsError(
-        err instanceof Error ? err.message : "Failed to load train details",
-      );
-    } finally {
-      setDetailsLoading(false);
-    }
-  }
-
-  // =========================
-  // Operational conditions
-  // =========================
-
-  function isCancelled(train: LiveTrain) {
-    return train.cancelled;
-  }
-
-  function isDelayed(train: LiveTrain) {
-    /*
-     * IMPORTANT:
-     * A cancelled train is NOT considered
-     * delayed for operational display/filtering.
-     */
-    return (
-      !isCancelled(train) &&
-      ((train.arrivalDelayMinutes ?? 0) > 0 ||
-        (train.departureDelayMinutes ?? 0) > 0)
-    );
-  }
-
-  function hasPlatformChanged(train: LiveTrain) {
-    /*
-     * IMPORTANT:
-     * A cancelled train is NOT considered
-     * platform-changed for operational
-     * display/filtering.
-     */
-    return (
-      !isCancelled(train) &&
-      train.plannedPlatform !== undefined &&
-      train.plannedPlatform !== null &&
-      train.actualPlatform !== undefined &&
-      train.actualPlatform !== null &&
-      train.plannedPlatform !== train.actualPlatform
-    );
-  }
-
-  function isRunning(train: LiveTrain) {
-    return (
-      !isCancelled(train) && !isDelayed(train) && !hasPlatformChanged(train)
-    );
-  }
-
-  // =========================
-  // Available categories
+  // Categories
   // =========================
 
   const categories = useMemo(() => {
@@ -165,11 +563,9 @@ function LiveTrainMonitor() {
       return [];
     }
 
-    const uniqueCategories = new Set(
-      data.trains.map((train) => train.train.category),
-    );
-
-    return Array.from(uniqueCategories).sort();
+    return Array.from(
+      new Set(data.trains.map((train) => train.train.category)),
+    ).sort();
   }, [data]);
 
   // =========================
@@ -184,42 +580,31 @@ function LiveTrainMonitor() {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     return data.trains.filter((train) => {
-      const trainNumber = String(train.train.trainNumber).toLowerCase();
+      const trainNumber = String(train.train.trainNumber ?? "").toLowerCase();
 
-      const category = train.train.category.toLowerCase();
+      const category = String(train.train.category ?? "").toLowerCase();
+
+      const operator = String(train.train.operator ?? "").toLowerCase();
+
+      const destination = String(
+        (train as LiveTrain & { destination?: string }).destination ?? "",
+      ).toLowerCase();
 
       const matchesSearch =
         normalizedSearch === "" ||
         trainNumber.includes(normalizedSearch) ||
-        category.includes(normalizedSearch);
+        category.includes(normalizedSearch) ||
+        operator.includes(normalizedSearch) ||
+        destination.includes(normalizedSearch);
 
       const matchesCategory =
-        categoryFilter === "ALL" || train.train.category === categoryFilter;
+        categoryFilter === "ALL" ||
+        String(train.train.category ?? "") === categoryFilter;
 
-      let matchesStatus = true;
+      const operationalStatus = getTrainOperationalStatus(train);
 
-      switch (statusFilter) {
-        case "RUNNING":
-          matchesStatus = isRunning(train);
-          break;
-
-        case "DELAYED":
-          matchesStatus = isDelayed(train);
-          break;
-
-        case "PLATFORM_CHANGED":
-          matchesStatus = hasPlatformChanged(train);
-          break;
-
-        case "CANCELLED":
-          matchesStatus = isCancelled(train);
-          break;
-
-        case "ALL":
-        default:
-          matchesStatus = true;
-          break;
-      }
+      const matchesStatus =
+        statusFilter === "ALL" || operationalStatus === statusFilter;
 
       return matchesSearch && matchesCategory && matchesStatus;
     });
@@ -236,15 +621,43 @@ function LiveTrainMonitor() {
   }
 
   // =========================
-  // Initial loading
+  // Loading stations
   // =========================
 
-  if (loading) {
+  if (stationLoading) {
     return (
       <section>
         <h2>Live Trains</h2>
 
-        <p>Loading live trains...</p>
+        <p>Loading stations...</p>
+      </section>
+    );
+  }
+
+  // =========================
+  // No station
+  // =========================
+
+  if (!selectedStation) {
+    return (
+      <section>
+        <h2>Live Trains</h2>
+
+        <p>No stations available.</p>
+      </section>
+    );
+  }
+
+  // =========================
+  // Loading live trains
+  // =========================
+
+  if (loading && !data) {
+    return (
+      <section>
+        <h2>Live Trains</h2>
+
+        <p>Loading live trains for {selectedStation.name}...</p>
       </section>
     );
   }
@@ -260,7 +673,7 @@ function LiveTrainMonitor() {
 
         <p>{error}</p>
 
-        <button onClick={() => loadTrains(true)}>Retry</button>
+        <button onClick={() => void loadTrains(true)}>Retry</button>
       </section>
     );
   }
@@ -269,16 +682,147 @@ function LiveTrainMonitor() {
     <section>
       <h2>Live Trains</h2>
 
-      <p>Station: {data?.stationEva ?? "All monitored stations"}</p>
+      {/* =========================
+          Station Selection
+          ========================= */}
+
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "500px",
+        }}
+      >
+        <label htmlFor="station-search">Station:</label>
+
+        <input
+          id="station-search"
+          type="text"
+          value={stationSearchTerm}
+          onChange={(event) => {
+            setStationSearchTerm(event.target.value);
+
+            setShowStationSuggestions(true);
+          }}
+          onFocus={() => {
+            setShowStationSuggestions(stationSearchTerm.trim() !== "");
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setShowStationSuggestions(false);
+            }
+          }}
+          placeholder="Type station name..."
+          autoComplete="off"
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: "4px",
+            boxSizing: "border-box",
+            padding: "6px 8px",
+          }}
+        />
+
+        {/* =========================
+            Station Suggestions
+            ========================= */}
+
+        {showStationSuggestions &&
+          stationSearchTerm.trim() !== "" &&
+          filteredStations.length > 0 && (
+            <div
+              role="listbox"
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                zIndex: 1000,
+                maxHeight: "300px",
+                overflowY: "auto",
+                background: "#ffffff",
+                border: "1px solid #ccc",
+                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
+              }}
+            >
+              {filteredStations.map((station) => (
+                <button
+                  key={station.eva}
+                  type="button"
+                  role="option"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+
+                    handleStationSelect(station);
+                  }}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: "none",
+                    borderBottom: "1px solid #eee",
+                    background: "#fff",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  <strong>{station.name}</strong> <span>({station.eva})</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+        {/* =========================
+            No matching stations
+            ========================= */}
+
+        {showStationSuggestions &&
+          stationSearchTerm.trim() !== "" &&
+          filteredStations.length === 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                zIndex: 1000,
+                padding: "10px",
+                background: "#ffffff",
+                border: "1px solid #ccc",
+              }}
+            >
+              No matching stations found.
+            </div>
+          )}
+      </div>
+
+      <p>
+        Monitoring: <strong>{selectedStation.name}</strong> (EVA{" "}
+        {selectedStation.eva})
+      </p>
 
       <p>Total live trains: {data?.count ?? 0}</p>
 
       {/* =========================
-          Refresh Information
+          WebSocket Status
+          ========================= */}
+
+      <p>
+        Realtime:{" "}
+        <strong>
+          {webSocketConnected && webSocketSubscribed
+            ? "CONNECTED"
+            : "CONNECTING"}
+        </strong>
+      </p>
+
+      {webSocketError && <p>Realtime connection: {webSocketError}</p>}
+
+      {/* =========================
+          Refresh
           ========================= */}
 
       <div>
-        <button onClick={handleRefresh} disabled={refreshing}>
+        <button onClick={() => void handleRefresh()} disabled={refreshing}>
           {refreshing ? "Refreshing..." : "Refresh Now"}
         </button>
 
@@ -290,7 +834,9 @@ function LiveTrainMonitor() {
       </div>
 
       {error && data && (
-        <p>Unable to refresh live train data. Showing last successful data.</p>
+        <p>
+          Unable to refresh live train data. Showing the last successful data.
+        </p>
       )}
 
       {/* =========================
@@ -301,20 +847,18 @@ function LiveTrainMonitor() {
         <h3>Search & Filters</h3>
 
         <div>
-          <label htmlFor="train-search">Search train:</label>
-
+          <label htmlFor="train-search">Search train:</label>{" "}
           <input
             id="train-search"
             type="text"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Train number or category"
+            placeholder="Train number, category, operator or destination"
           />
         </div>
 
         <div>
-          <label htmlFor="category-filter">Category:</label>
-
+          <label htmlFor="category-filter">Category:</label>{" "}
           <select
             id="category-filter"
             value={categoryFilter}
@@ -331,8 +875,7 @@ function LiveTrainMonitor() {
         </div>
 
         <div>
-          <label htmlFor="status-filter">Status:</label>
-
+          <label htmlFor="status-filter">Status:</label>{" "}
           <select
             id="status-filter"
             value={statusFilter}
@@ -360,117 +903,7 @@ function LiveTrainMonitor() {
       </div>
 
       {/* =========================
-          Selected Train Details
-          ========================= */}
-
-      {detailsLoading && (
-        <div>
-          <h3>Train Details</h3>
-
-          <p>Loading train details...</p>
-        </div>
-      )}
-
-      {detailsError && (
-        <div>
-          <h3>Train Details</h3>
-
-          <p>{detailsError}</p>
-
-          <button onClick={() => setDetailsError(null)}>Close</button>
-        </div>
-      )}
-
-      {selectedTrain && !detailsLoading && !detailsError && (
-        <div>
-          <h3>
-            {selectedTrain.train.category} {selectedTrain.train.trainNumber}
-          </h3>
-
-          <p>Operational status:</p>
-
-          {isCancelled(selectedTrain) ? (
-            <p>🔴 CANCELLED</p>
-          ) : (
-            <>
-              {isDelayed(selectedTrain) && <p>🟠 DELAYED</p>}
-
-              {hasPlatformChanged(selectedTrain) && <p>🟡 PLATFORM CHANGED</p>}
-
-              {isRunning(selectedTrain) && <p>🟢 RUNNING</p>}
-            </>
-          )}
-
-          <p>Train number: {selectedTrain.train.trainNumber}</p>
-
-          <p>Category: {selectedTrain.train.category}</p>
-
-          <p>Operator: {selectedTrain.train.operator}</p>
-
-          <p>Station EVA: {selectedTrain.stationEva}</p>
-
-          <p>
-            Planned arrival:{" "}
-            {selectedTrain.plannedArrival
-              ? new Date(selectedTrain.plannedArrival).toLocaleString()
-              : "N/A"}
-          </p>
-
-          <p>
-            Actual arrival:{" "}
-            {selectedTrain.actualArrival
-              ? new Date(selectedTrain.actualArrival).toLocaleString()
-              : "N/A"}
-          </p>
-
-          <p>
-            Planned departure:{" "}
-            {selectedTrain.plannedDeparture
-              ? new Date(selectedTrain.plannedDeparture).toLocaleString()
-              : "N/A"}
-          </p>
-
-          <p>
-            Actual departure:{" "}
-            {selectedTrain.actualDeparture
-              ? new Date(selectedTrain.actualDeparture).toLocaleString()
-              : "N/A"}
-          </p>
-
-          <p>Planned platform: {selectedTrain.plannedPlatform ?? "N/A"}</p>
-
-          <p>Actual platform: {selectedTrain.actualPlatform ?? "N/A"}</p>
-
-          <p>Arrival delay: {selectedTrain.arrivalDelayMinutes ?? 0} minutes</p>
-
-          <p>
-            Departure delay: {selectedTrain.departureDelayMinutes ?? 0} minutes
-          </p>
-
-          <p>Cancelled: {selectedTrain.cancelled ? "Yes" : "No"}</p>
-
-          <h4>Messages</h4>
-
-          {selectedTrain.messages && selectedTrain.messages.length > 0 ? (
-            selectedTrain.messages.map((message) => (
-              <div key={message.id}>
-                <p>Type: {message.type}</p>
-
-                <p>{message.text || "No message text"}</p>
-
-                {message.priority && <p>Priority: {message.priority}</p>}
-              </div>
-            ))
-          ) : (
-            <p>No messages.</p>
-          )}
-
-          <button onClick={() => setSelectedTrain(null)}>Close Details</button>
-        </div>
-      )}
-
-      {/* =========================
-          Filtered Train List
+          Live Train Table
           ========================= */}
 
       <h3>Current Live Trains</h3>
@@ -482,60 +915,127 @@ function LiveTrainMonitor() {
           <button onClick={clearFilters}>Clear Filters</button>
         </div>
       ) : (
-        <div>
-          {filteredTrains.map((train, index) => {
-            const trainNumber = String(train.train.trainNumber);
+        <div
+          style={{
+            overflowX: "auto",
+          }}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Train</th>
 
-            const arrivalDelay = train.arrivalDelayMinutes ?? 0;
+                <th scope="col">Category</th>
 
-            const departureDelay = train.departureDelayMinutes ?? 0;
+                <th scope="col">Operator</th>
 
-            const maximumDelay = Math.max(arrivalDelay, departureDelay);
+                <th scope="col">Destination</th>
 
-            return (
-              <div key={`${trainNumber}-${train.stationEva}-${index}`}>
-                <h4>
-                  {train.train.category} {trainNumber}
-                </h4>
+                <th scope="col">Arrival</th>
 
-                {/* =========================
-                      Operational indicators
-                      ========================= */}
+                <th scope="col">Departure</th>
 
-                {isCancelled(train) ? (
-                  <p>🔴 CANCELLED</p>
-                ) : (
-                  <>
-                    {isDelayed(train) && <p>🟠 DELAYED</p>}
+                <th scope="col">Delay</th>
 
-                    {hasPlatformChanged(train) && <p>🟡 PLATFORM CHANGED</p>}
+                <th scope="col">Platform</th>
 
-                    {isRunning(train) && <p>🟢 RUNNING</p>}
-                  </>
-                )}
+                <th scope="col">Status</th>
 
-                <p>
-                  Platform:{" "}
-                  {train.actualPlatform ?? train.plannedPlatform ?? "N/A"}
-                </p>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
 
-                {!isCancelled(train) && isDelayed(train) && (
-                  <p>Delay: {maximumDelay} minutes</p>
-                )}
+            <tbody>
+              {filteredTrains.map((train, index) => {
+                /*
+                 * IMPORTANT:
+                 * No React hooks are used
+                 * inside this map.
+                 */
+                const trainNumber = String(train.train.trainNumber);
 
-                {!isCancelled(train) && hasPlatformChanged(train) && (
-                  <p>
-                    Planned platform: {train.plannedPlatform} → Actual:{" "}
-                    {train.actualPlatform}
-                  </p>
-                )}
+                const arrivalDelay = train.arrivalDelayMinutes ?? 0;
 
-                <button onClick={() => loadTrainDetails(trainNumber)}>
-                  View Details
-                </button>
-              </div>
-            );
-          })}
+                const departureDelay = train.departureDelayMinutes ?? 0;
+
+                const maximumDelay = Math.max(arrivalDelay, departureDelay);
+
+                const status = getTrainOperationalStatus(train);
+
+                /*
+                 * Destination is supplied by the backend LiveStopDto
+                 * and propagated into LiveTrain.
+                 *
+                 * Use a type-safe compatibility cast here so this
+                 * component can display the field even if the current
+                 * operations.types.ts has not yet been updated with
+                 * destination?: string.
+                 */
+                const destination = (
+                  train as LiveTrain & { destination?: string }
+                ).destination;
+
+                return (
+                  <tr key={`${trainNumber}-${train.stationEva}-${index}`}>
+                    <td>
+                      <strong>{trainNumber}</strong>
+                    </td>
+
+                    <td>{train.train.category}</td>
+
+                    <td>{train.train.operator || "N/A"}</td>
+
+                    <td>
+                      {destination && destination.trim() !== ""
+                        ? destination
+                        : "N/A"}
+                    </td>
+
+                    <td>
+                      {train.actualArrival ?? train.plannedArrival ?? "N/A"}
+                    </td>
+
+                    <td>
+                      {train.actualDeparture ?? train.plannedDeparture ?? "N/A"}
+                    </td>
+
+                    <td>
+                      {status === "DELAYED" ? `${maximumDelay} min` : "—"}
+                    </td>
+
+                    <td>
+                      {train.actualPlatform ?? train.plannedPlatform ?? "N/A"}
+                    </td>
+
+                    <td>{status.replace("_", " ")}</td>
+
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onNavigateToTrainDetails({
+                            ...train,
+
+                            /*
+                             * The currently selected station is authoritative.
+                             *
+                             * This guarantees that the train passed to
+                             * Train Details always carries the EVA of the
+                             * station whose Live Trains table is being viewed.
+                             */
+                            stationEva:
+                              selectedStation?.eva ?? train.stationEva,
+                          })
+                        }
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

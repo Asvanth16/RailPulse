@@ -6,4 +6,8 @@ export const WebSocketRooms = {
   user(userId: string): string {
     return `user:${userId}`;
   },
+
+  operations(): string {
+    return "operations";
+  },
 };

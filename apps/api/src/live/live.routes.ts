@@ -24,4 +24,14 @@ router.get(
   liveController.getRecentChanges.bind(liveController),
 );
 
+router.get(
+  "/trains/:evaNo/:trainNumber",
+  liveController.getTrainAtStation.bind(liveController),
+);
+
+router.get(
+  "/routes/:evaNo",
+  liveController.getTrainsToDestination.bind(liveController),
+);
+
 export default router;

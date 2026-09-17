@@ -23,15 +23,11 @@ export const plannedTimetableSchema = z.object({
   params: z.object({
     evaNo: z.string().regex(/^\d+$/, "Invalid EVA number"),
 
-    date: z.string().regex(
-      /^\d{6}$/,
-      "Date must be in YYMMDD format",
-    ),
+    date: z.string().regex(/^\d{6}$/, "Date must be in YYMMDD format"),
 
-    hour: z.string().regex(
-      /^(0\d|1\d|2[0-3])$/,
-      "Hour must be between 00 and 23",
-    ),
+    hour: z
+      .string()
+      .regex(/^(0\d|1\d|2[0-3])$/, "Hour must be between 00 and 23"),
   }),
 });
 
@@ -50,5 +46,31 @@ export const fullChangesSchema = z.object({
 export const recentChangesSchema = z.object({
   params: z.object({
     evaNo: z.string().regex(/^\d+$/, "Invalid EVA number"),
+  }),
+});
+
+/**
+ * GET /api/live/trains/:evaNo/:trainNumber
+ *
+ * Merges the planned timetable and live changes for one specific train at
+ * one specific station — used to power a live train-detail view without
+ * depending on the background monitoring scheduler.
+ */
+export const trainAtStationSchema = z.object({
+  params: z.object({
+    evaNo: z.string().regex(/^\d+$/, "Invalid EVA number"),
+    trainNumber: z.string().trim().min(1, "Train number is required"),
+  }),
+});
+
+/**
+ * GET /api/live/routes/:evaNo?to=
+ */
+export const routesBetweenStationsSchema = z.object({
+  params: z.object({
+    evaNo: z.string().regex(/^\d+$/, "Invalid EVA number"),
+  }),
+  query: z.object({
+    to: z.string().trim().min(1, "Query parameter \"to\" is required"),
   }),
 });
